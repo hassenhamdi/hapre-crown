@@ -189,23 +189,22 @@ def fig_f3():
 
 # ---------------- F4: negative atlas (signed bars from 0) ----------------
 # Each bar vs its probe-local baseline (see §5); exact deltas banked.
+# 4-tuples: (family, delta_pct, level, baseline). Rows without a traceable
+# baseline in the ledgers are EXCLUDED (2026-09-10 audit: byte-LZ +1.84, GAP
+# crude mixer +3.70, LPC-3 +4.00, MA-tree-lite -0.56, I-GATED -0.29 have no
+# probe-local baseline on disk; see docs/ATLAS_BASELINES.md unresolved set).
 F4_ROWS = [
-    ("bitplane-B vs joint-C", +26.3, "P"),
-    ("Squeeze-NN LF-pred", +13.48, "P"),
-    ("smooth upsample (bilin)", +10.77, "P"),
-    ("LF-cluster cond", +7.50, "P"),
-    ("naive regroup quad", +3.85, "P"),
-    ("joint group×act adapt", +3.36, "P"),
-    ("hash-cache escape", +2.85, "P"),
-    ("regroup pair", +2.12, "P"),
-    ("byte-LZ on resid", +1.84, "P"),
-    ("GAP crude mixer", +3.70, "P"),
-    ("LPC-3 16x16", +4.00, "P"),
-    ("VQ transfer stack", -1.25, "P"),
-    ("MA-tree-lite", -0.56, "P"),
-    ("I-GATED", -0.29, "P"),
-    ("A-joint pairs (frame)", -1.58, "P"),
-    ("LOCO-I full (Golomb)", -9.90, "P"),
+    ("bitplane-B vs joint-C", +26.3, "P", "joint-C 3.3737"),
+    ("Squeeze-NN LF-pred", +13.48, "P", "lfpred 10.7306"),
+    ("smooth upsample (bilin)", +10.77, "P", "lfup 3.5769"),
+    ("LF-cluster cond", +7.50, "P", "lf2 10.7306"),
+    ("naive regroup quad", +3.85, "P", "MED 3.5782"),
+    ("joint group×act adapt", +3.36, "P", "S0 3.5782"),
+    ("hash-cache escape", +2.85, "P", "MED-order-0 3.5769"),
+    ("regroup pair", +2.12, "P", "MED 3.5782"),
+    ("VQ transfer stack", -1.25, "P", "CROWN2 3.2686"),
+    ("A-joint pairs (frame)", -1.58, "P", "MED 3.5769"),
+    ("LOCO-I full (Golomb)", -9.90, "P", "MED+Golomb"),
 ]
 
 
@@ -253,7 +252,13 @@ F5_COL = {"classic": OI["gray"], "ours": OI["sky"], "ours-best": OI["blue"],
 
 
 def fig_f5():
-    fig, ax = plt.subplots(figsize=(6.0, 3.6), layout="constrained")
+    fig, ax = plt.subplots(figsize=(6.0, 3.9), layout="constrained")
+    # leader-line targets for the tight mid-stack (data coords, empty zone)
+    LEAD = {"CROWN-huff": (0.55, 3.375), "CROWN-rans-hc": (0.55, 3.325),
+            "CROWN-E16": (0.55, 3.26), "CROWN4": (0.55, 3.205)}
+    OFF = {"HAPRE-C": (4, 7), "RUN": (4, -7), "MOE": (4, 3),
+           "CROWN6": (4, -10), "P2-LLM (8xA800)": (-4, 0)}
+    RIGHT_OF = {"P2-LLM (8xA800)"}
     for fam, mk in (("classic", "o"), ("ours", "s"), ("ours-best", "D"),
                     ("learned", "^")):
         xs = [p[2] for p in F5_POINTS if p[3] == fam]
@@ -262,12 +267,22 @@ def fig_f5():
         ax.scatter(xs, ys, c=F5_COL[fam], marker=mk, s=45, edgecolors="black",
                    linewidths=0.5, label=fam, zorder=3)
         for x, y, s in zip(xs, ys, ls):
-            ax.text(x * 1.12, y, s, fontsize=6, va="center")
+            if s in LEAD:
+                # crowded mid-stack: leader line into the empty zone
+                ax.annotate(s, (x, y), xytext=LEAD[s],
+                            fontsize=6, va="center", ha="left",
+                            arrowprops=dict(arrowstyle="-", lw=0.5,
+                                            color="black"))
+                continue
+            dx, dy = OFF.get(s, (4, 0))
+            ha = "right" if s in RIGHT_OF else "left"
+            ax.annotate(s, (x, y), xytext=(dx, dy), textcoords="offset points",
+                        fontsize=6, va="center", ha=ha)
     # CROWN6 decode interval 182-348ms as explicit range bar
     ax.hlines(3.1978, 0.182, 0.348, colors=OI["blue"], linewidths=3, zorder=2)
     ax.set_xscale("log")
-    ax.set_xlabel("decode time per image, s, log scale (ours/classic: kodim23-class CPU; learned: paper Kodak-avgs, GPU)")
-    ax.set_ylabel("Kodak avg bpp (ours/classic: 7-avg exact; learned: full-24)")
+    ax.set_xlabel("decode time per image, s (log scale; CPU-exact vs GPU-learned, see caption)")
+    ax.set_ylabel("Kodak avg bpp (exact 7-avg vs literature full-24)")
     ax.set_title("Ratio–decode Pareto (CPU exact cluster vs GPU learned cluster)")
     ax.legend(fontsize=7, loc="upper right")
     ax.grid(True, which="major", axis="x", linestyle=":", linewidth=0.5)

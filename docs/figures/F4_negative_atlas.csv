@@ -1,0 +1,12 @@
+family,delta_pct,level,baseline
+bitplane-B vs joint-C,26.3,P,joint-C 3.3737
+Squeeze-NN LF-pred,13.48,P,lfpred 10.7306
+smooth upsample (bilin),10.77,P,lfup 3.5769
+LF-cluster cond,7.5,P,lf2 10.7306
+naive regroup quad,3.85,P,MED 3.5782
+joint group×act adapt,3.36,P,S0 3.5782
+hash-cache escape,2.85,P,MED-order-0 3.5769
+regroup pair,2.12,P,MED 3.5782
+VQ transfer stack,-1.25,P,CROWN2 3.2686
+A-joint pairs (frame),-1.58,P,MED 3.5769
+LOCO-I full (Golomb),-9.9,P,MED+Golomb

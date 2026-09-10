@@ -1,0 +1,18 @@
+codec,bpp_avg,status
+QOI,4.9197,boss-dead
+PNG-9,4.75,boss-dead
+JPEG-LS CharLS,4.5757,boss-dead
+JXL-e1,3.72,boss-dead
+WebP-m0,3.6,boss-dead
+CROWN-huff,3.343,ours
+WebP-m3,3.347,boss-dead
+CROWN-rans-hc,3.309,ours
+WebP-m6,3.3157,boss-dead
+CROWN2,3.2686,ours
+JXL-e3,3.2291,boss-stands
+CROWN4,3.1993,ours
+CROWN6,3.1978,ours-best
+FLIF v0.4,2.9699,boss-stands
+JXL-e9,3.0324,boss-stands
+DLPR*,2.86,learned
+CALLIC*,2.54,learned

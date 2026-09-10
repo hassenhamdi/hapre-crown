@@ -1,0 +1,86 @@
+{
+ "figures": [
+  {
+   "name": "F1_ladder",
+   "alt": "Horizontal bar chart of Kodak average bpp for 17 codecs: ours from 4.75 down to learned 2.54.",
+   "sources": [
+    "RESULTS.md boss board",
+    "crown6_results.json",
+    "survey/bosstakedown/data/classical7.json",
+    "CALLIC Tab.1 (2412.17464 p.6)",
+    "P2-LLM Tab.2 (2411.12448 p.7)"
+   ],
+   "files": [
+    "F1_ladder.pdf",
+    "F1_ladder.png"
+   ]
+  },
+  {
+   "name": "F1b_perimage",
+   "alt": "Heatmap of per-image bpp for CROWN6, JXL-e3, FLIF across 7 Kodak images with row winners starred.",
+   "sources": [
+    "crown6_results.json",
+    "survey/bosstakedown/data/ladder.csv",
+    "survey/bosstakedown/data/classical7.json"
+   ],
+   "files": [
+    "F1b_perimage.pdf",
+    "F1b_perimage.png"
+   ]
+  },
+  {
+   "name": "F2_lineage",
+   "alt": "Line chart of champion average bpp across 10 generations from HAPRE-C 3.58 to CROWN6 3.1978 with boss reference lines.",
+   "sources": [
+    "RESULTS.md exact-codecs table",
+    "draft Table lineage"
+   ],
+   "files": [
+    "F2_lineage.pdf",
+    "F2_lineage.png"
+   ]
+  },
+  {
+   "name": "F3_ceiling_loo",
+   "alt": "Horizontal bars of leave-one-out marginals over the 3.2515 classical ceiling.",
+   "sources": [
+    "experiments/probe_b14_summary.json"
+   ],
+   "files": [
+    "F3_ceiling_loo.pdf",
+    "F3_ceiling_loo.png"
+   ]
+  },
+  {
+   "name": "F4_negative_atlas",
+   "alt": "Signed horizontal bars of dead-end deltas, each versus its probe-local baseline.",
+   "sources": [
+    "draft \u00a75 with per-probe RESULTS files"
+   ],
+   "files": [
+    "F4_negative_atlas.pdf",
+    "F4_negative_atlas.png"
+   ]
+  },
+  {
+   "name": "F5_pareto",
+   "alt": "Scatter of average bpp versus decode seconds (log) for CPU exact codecs and GPU learned codecs.",
+   "sources": [
+    "RESULTS.md decode column",
+    "qoibench (QOI 3.4ms)",
+    "djxl/PIL timings (measured)",
+    "CALLIC/HPAC/P2-LLM/DLPR/ArIB papers"
+   ],
+   "files": [
+    "F5_pareto.pdf",
+    "F5_pareto.png"
+   ]
+  }
+ ],
+ "notes": [
+  "No F6 RD figure: no banked RD sweep outputs (rd_sweep.py exists, outputs not banked).",
+  "CROWN2 decode omitted from F5 (unbanked).",
+  "Learned points: full-24 Kodak avgs, paper-reported GPU times; ours/classic: 7-avg exact ratios.",
+  "F5 CROWN6 xric: explicit interval bar 182-348ms (per-image range), point at midpoint."
+ ]
+}

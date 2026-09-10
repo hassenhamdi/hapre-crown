@@ -1,0 +1,11 @@
+{
+ "_provenance": "Transcribed 2026-09-10 from probes/probe_b14_RESULTS.md AVG row (lines 58-68); original probe_b14_summary.json absent from tree (read-snapshot only in session ses_f80791f84). Values exact as banked.",
+ "FULL-avg": 3.2515,
+ "LOO1-noLOCO-avg": 3.2847,
+ "LOO2-E6-avg": 3.2594,
+ "LOO3-Honly-avg": 3.3013,
+ "LOO4-noMerge-avg": 3.2662,
+ "LOO5-noTree-avg": 3.2515,
+ "LOO6-noGrid-avg": 3.2515,
+ "LOO7-noSplit-avg": 3.2519
+}

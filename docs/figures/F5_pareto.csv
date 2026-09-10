@@ -1,0 +1,20 @@
+codec,bpp_avg,decode_s,family
+PNG-9,4.75,0.013,classic
+QOI,4.9197,0.0034,classic
+HAPRE-C,3.58,0.12,ours
+RUN,3.511,0.12,ours
+MOE,3.464,0.135,ours
+CROWN-huff,3.359,0.13,ours
+CROWN-rans-hc,3.309,0.13,ours
+CROWN-E16,3.285,0.14,ours
+CROWN4,3.1993,0.23,ours
+CROWN6,3.1978,0.265,ours-best
+JXL-e1,3.72,0.012,classic
+JXL-e3,3.2291,0.033,classic
+JXL-e9,3.0324,0.1,classic
+FLIF,2.9699,0.35,classic
+DLPR (GPU),2.86,1.8,learned
+CALLIC (GPU),2.54,1.7,learned
+HPAC (GPU),2.73,0.9,learned
+ArIB-BPS (GPU),2.78,7.0,learned
+P2-LLM (8xA800),2.83,273.0,learned
