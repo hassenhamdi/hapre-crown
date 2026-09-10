@@ -40,7 +40,7 @@ efforts, and tuned learned codecs stand, with losses disclosed at the same
 rigor as wins. A stacked classical ceiling with leave-one-out marginals
 marks where hand contexts end, and a mechanism-backed negative atlas maps
 where not to drill. All streams, code, and ledgers are banked
-(\verb|CHECKSUMS.txt|, \verb|docs/VERIFY_report.md|, \verb|src/*_FORMAT.md|;
+(\texttt{CHECKSUMS.txt}, \texttt{docs/VERIFY\_report.md}, \texttt{src/*\_FORMAT.md};
 git history in-repo; public URL deferred to camera-ready).
 \end{abstract}
 
@@ -193,7 +193,7 @@ forced backend-0. Greedy table merges (exact-gated): $-1.20\%$ MED-frame.
 Energy-9 quantile contexts $\times$ (12feat$\to$8$\to$1 tanh, L1, LS-init,
 200 iters @ lr 0.003 cosine, adaptive-int16 \{256--4096\}, double MDL gate).
 Wire-forward bit-exact by construction: frozen tanh LUT (step $2^{-14}$,
-\verb|-ffp-contract=off|), exact int16 dequant, half-up rounding. C-vs-wire
+\texttt{-ffp-contract=off}), exact int16 dequant, half-up rounding. C-vs-wire
 xcheck: 0 mismatches / 17.2M px (E). Side: 64\,B thresholds + 9 scale-id
 bytes + 226\,B/winning net; per-channel dual-track gate keeps CROWN6 within
 sub-0.0015 exact bytes of CROWN4 per image (observed deltas $-0.0111$ to
@@ -205,12 +205,12 @@ MLP flags/side + W-side + group map + 7-bit [predid:5][backend:2] +
 kvals/dbias + Huffman tables/payloads + Golomb payloads + rANS groups.
 Decoder: single causal scan + RCT inverse; \texttt{p==len} asserted;
 \texttt{decode==original} byte-compared. Full byte tables are versioned with
-the code in \verb|src/CROWN6_FORMAT.md| (plus \verb|src/CROWN4_FORMAT.md| for the
+the code in \texttt{src/CROWN6\_FORMAT.md} (plus \texttt{src/CROWN4\_FORMAT.md} for the
 shared sections);
 C++ port (\texttt{cpp/}) reproduces reference streams sha-identically on all
 7 Kodak images given the banked weights with a 9-way parallel encoder ($\sim$27\,s/img, $\sim$117\,s
 sequential) and a pure-C++ trainer (per-image exact byte counts banked in
-\verb|docs/VERIFY_report.md|).
+\texttt{docs/VERIFY\_report.md}).
 
 \begin{figure}[ht]
 \centering
@@ -227,7 +227,7 @@ same machine (Intel i7-10750H, 6C/12T): PIL 12.2.0 (PNG/WebP), cjxl/djxl 0.11.2 
 (source build), CharLS 2.4.4, QOI (qoi.h); baseline commits and build flags
 pinned at camera-ready. Ours: gcc 15.2.1, Python 3.14.2 / numpy
 2.4.6 / torch 2.14 CPU (MLP training only); C++ encode 9-way parallel by default
-(\verb|CROWN_JOBS=1| forces sequential for debugging). bpp = stream\_bytes$\cdot$8/$N$.
+(\texttt{CROWN\_JOBS=1} forces sequential for debugging). bpp = stream\_bytes$\cdot$8/$N$.
 All claims Wilcoxon paired two-sided ($n=7$; each boss a separate
 pre-registered pairwise comparison, no multiplicity correction, so family-wise
 error is not controlled; $n=7$ floor $p=.016$, and every $p=.016$ hit sits at
@@ -274,8 +274,8 @@ JXL-e9 & 3.03 & $+5.5\%$ & --- & FINAL BOSS \\
 Disclosure: KOs listed strongest-first; weight rests on WebP-m3/m6 and JXL
 configs. CROWN-huff vs PIL-m3 ties ($-0.0023$ avg, 1W-6L p$\approx$.30);
 CROWN6 vs m6 ties-or-better (no 7/7 overclaim). Tuned-e9 2.9452 measured
-(\verb|cjxl -d 0 -e 9 -g 3 -I 100 -E 11|, 7/7 round-trip PASS,
-\verb|docs/EVIDENCE_2026-09-10.md|) is the true Boss-6 bar.
+(\texttt{cjxl -d 0 -e 9 -g 3 -I 100 -E 11}, 7/7 round-trip PASS,
+\texttt{docs/EVIDENCE\_2026-09-10.md}) is the true Boss-6 bar.
 
 \begin{table}[h]
 \centering\small
@@ -338,7 +338,7 @@ maxerr 3 / PSNR 47.3; $\tau$2 $\sim$2.0--2.6 at maxerr 4 / PSNR 43.5.
 
 Each row gives the config, the exact delta against its probe-local baseline,
 and the measured mechanism. (P)=probe-level exact-counted, (E)=exact-codec.
-Baselines with absolute bpp are banked per-row in \verb|docs/ATLAS_BASELINES.md|.
+Baselines with absolute bpp are banked per-row in \texttt{docs/ATLAS\_BASELINES.md}.
 Full evidence per row is in the cited probe ledger.
 
 \begin{figure}[ht]
@@ -353,7 +353,7 @@ red = loss, green = win retired in-frame. See per-row ledgers.}
 \centering\small
 \caption{Dead-end mechanisms (abridged; per-row baselines in \texttt{docs/ATLAS\_BASELINES.md}, full text in probe ledgers).}
 \label{tab:negatives}
-\begin{tabular}{@{}llp{2.9in}@{}}
+\begin{tabular}{@{}llp{2.86in}@{}}
 \toprule
 Family & Delta & Mechanism (measured) \\
 \midrule
@@ -382,7 +382,7 @@ Every bug below bit us; each fix is load-bearing for exactness.
 \centering
 \caption{Bug classes and fixes.}
 \label{tab:bugs}
-\begin{tabular}{@{}ll@{}}
+\begin{tabular}{@{}l p{3.3in}@{}}
 \toprule
 Class & Fix \\
 \midrule
@@ -392,9 +392,9 @@ Alphabet clipping & $\pm$1024 + proven bounds; loud asserts, decoder never clips
 rANS precision & $M=14$ ($2^M\gg A$) \\
 Border doctrines & encoder$==$decoder per path; aliasing audit \\
 Unary polarity splits & vendored packer per era; documented \\
-tanh 1-ulp | frozen LUT $2^{-14}$, \verb|-ffp-contract=off|, 0/17.2M xcheck \\
-Quantizer scale | mechanism diagnostics caught all-zero weights; rerun \\
-Map framing | dense bitmask; \texttt{p==len} asserted everywhere \\
+tanh 1-ulp & frozen LUT $2^{-14}$, \texttt{-ffp-contract=off}, 0/17.2M xcheck \\
+Quantizer scale & mechanism diagnostics caught all-zero weights; rerun \\
+Map framing & dense bitmask; \texttt{p==len} asserted everywhere \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -410,7 +410,7 @@ descriptive n=3): RUN round-trips PASS at 3.3880/3.2986/3.6047 (mean 3.4304
 vs test-7 3.5114); CROWN6 on kodim15 exposed two encoder bugs (since fixed:
 lstsq degenerate fallback, LMS-residual assembly) and now round-trips at
 416939\,B byte-identical to the Python reference
-(\verb|docs/EVIDENCE_2026-09-10.md|). \textbf{Learned scale.} True e9 bar $\approx$2.94 needs
+(\texttt{docs/EVIDENCE\_2026-09-10.md}). \textbf{Learned scale.} True e9 bar $\approx$2.94 needs
 learned-MA + per-group RCT at JXL scale, or the learned-micro arc
 (per-group learned predictors + offline-trained trees). \textbf{Speed and
 robustness.} Encode is slow (ratio game only); old 0-ctx driver hard-fails
