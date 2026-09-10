@@ -83,4 +83,4 @@ for MLP training only). Baselines need `cjxl`/`djxl` 0.11.x on PATH.
 ## License
 
 - Code, paper source, and project documentation: MIT, see `LICENSE`
-  (copyright holder names to be finalized before publication).
+  (copyright 2026 Hassen Hamdi, independent research).
