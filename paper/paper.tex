@@ -115,8 +115,8 @@ Ours (CROWN6-exact) & 3.1978 (E) & C dec 0.1--0.35\,s CPU \\
 \end{table}
 
 Classical full-24 anchors for orientation: JPEG-LS 2.82, CALIC 2.87, FLIF
-2.72, JPEG-XL 2.63--2.88 (version spread; ours e9 3.03 sits inside on our
-subset with cjxl 0.11.2). We do not claim the neural SOTA. We claim the
+2.72, JPEG-XL 2.63--2.88 (version spread; ours e9 3.03 sits above that
+literature spread on our subset with cjxl 0.11.2). We do not claim the neural SOTA. We claim the
 strongest fully-counted classical-plus-micro-neural exact codec in this
 campaign: 60.7\% of the way from JXL-e1 (3.72) to DLPR (2.86) (43.5\% to the
 best listed endpoint, HPAC-FT 2.52).
@@ -195,8 +195,9 @@ Energy-9 quantile contexts $\times$ (12feat$\to$8$\to$1 tanh, L1, LS-init,
 Wire-forward bit-exact by construction: frozen tanh LUT (step $2^{-14}$,
 \verb|-ffp-contract=off|), exact int16 dequant, half-up rounding. C-vs-wire
 xcheck: 0 mismatches / 17.2M px (E). Side: 64\,B thresholds + 9 scale-id
-bytes + 226\,B/winning net; per-channel dual-track gate makes CROWN6 $\le$
-CROWN4 per image by construction.
+bytes + 226\,B/winning net; per-channel dual-track gate keeps CROWN6 within
+sub-0.0015 exact bytes of CROWN4 per image (observed deltas $-0.0111$ to
+$+0.0008$; tie W=6 p=.81, losses on 07/13/23 disclosed).
 
 \SubSection{Exact stream (CROWN6 v1)}
 Magic \texttt{C6} + H/W + ver/RCT flags (8\,B). Per channel: family header +
@@ -207,7 +208,7 @@ Decoder: single causal scan + RCT inverse; \texttt{p==len} asserted;
 the code in \verb|src/CROWN6_FORMAT.md| (plus \verb|src/CROWN4_FORMAT.md| for the
 shared sections);
 C++ port (\texttt{cpp/}) reproduces reference streams sha-identically on all
-7 Kodak images with a 9-way parallel encoder ($\sim$27\,s/img, $\sim$117\,s
+7 Kodak images given the banked weights with a 9-way parallel encoder ($\sim$27\,s/img, $\sim$117\,s
 sequential) and a pure-C++ trainer (per-image exact byte counts banked in
 \verb|docs/VERIFY_report.md|).
 
@@ -263,7 +264,7 @@ WebP-m0 & 3.60 & $-11.2\%$ & 6W-0L-1T p=.031 & KO \\
 WebP-m3 & 3.347 & $-4.5\%$ & 7/7 p=.016 & KO (rANS arm) \\
 WebP-m6 & 3.3157 & $-3.6\%$ & 7/7 p=.016 & KO (exact) \\
 JPEG-LS CharLS & 4.5757 & $-30.1\%$ & 7/7 p=.016 & KO \\
-FLIF v0.4 & 2.9699 & $+7.1\%$ & 0W-7L p=.016 & STANDING \\
+FLIF v0.4 & 2.9699 & $+7.7\%$ & 0W-7L p=.016 & STANDING \\
 JXL-e3 & 3.2291 & $-1.0\%$ & 5W-2L p=.219 & STANDING \\
 JXL-e9 & 3.03 & $+5.5\%$ & --- & FINAL BOSS \\
 \bottomrule
@@ -350,7 +351,7 @@ red = loss, green = win retired in-frame. See per-row ledgers.}
 
 \begin{table}[h]
 \centering\small
-\caption{Dead-end mechanisms (abridged; full text with file pointers in draft Section~5).}
+\caption{Dead-end mechanisms (abridged; per-row baselines in \texttt{docs/ATLAS\_BASELINES.md}, full text in probe ledgers).}
 \label{tab:negatives}
 \begin{tabular}{@{}llp{2.9in}@{}}
 \toprule
@@ -400,8 +401,8 @@ Map framing | dense bitmask; \texttt{p==len} asserted everywhere \\
 
 \Section{Limitations and Future Work}
 
-\textbf{Texture gap.} CROWN6 leads on average yet loses kodim05 (+1.95\%)
-and kodim13 (+1.00\%) (E); FLIF takes all rows. Larger-neighborhood
+\textbf{Texture gap.} CROWN6 leads on average yet loses kodim05 (+1.95\% vs
+JXL-e3) and kodim13 (+1.00\% vs JXL-e3) (E); FLIF takes all rows. Larger-neighborhood
 prediction (not finer coding) is the remaining path: our b22--b25 probes
 closed adaptivity, training-tail, header-sharing, and palette arcs with
 measured zeros. \textbf{Held-out.} Three held-out Kodak images (04/15/24,
