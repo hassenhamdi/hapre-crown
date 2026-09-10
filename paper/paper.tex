@@ -209,8 +209,7 @@ the code in \texttt{src/CROWN6\_FORMAT.md} (plus \texttt{src/CROWN4\_FORMAT.md} 
 shared sections);
 C++ port (\texttt{cpp/}) reproduces reference streams sha-identically on all
 7 Kodak images given the banked weights with a 9-way parallel encoder ($\sim$27\,s/img, $\sim$117\,s
-sequential) and a pure-C++ trainer (per-image exact byte counts banked in
-\texttt{docs/VERIFY\_report.md}).
+sequential) and a pure-C++ trainer.
 
 \begin{figure}[ht]
 \centering
@@ -274,8 +273,7 @@ JXL-e9 & 3.03 & $+5.5\%$ & --- & FINAL BOSS \\
 Disclosure: KOs listed strongest-first; weight rests on WebP-m3/m6 and JXL
 configs. CROWN-huff vs PIL-m3 ties ($-0.0023$ avg, 1W-6L p$\approx$.30);
 CROWN6 vs m6 ties-or-better (no 7/7 overclaim). Tuned-e9 2.9452 measured
-(\texttt{cjxl -d 0 -e 9 -g 3 -I 100 -E 11}, 7/7 round-trip PASS,
-\texttt{docs/EVIDENCE\_2026-09-10.md}) is the true Boss-6 bar.
+(\texttt{cjxl -d 0 -e 9 -g 3 -I 100 -E 11}, 7/7 round-trip PASS) is the true Boss-6 bar.
 
 \begin{table}[h]
 \centering\small
@@ -409,8 +407,7 @@ measured zeros. \textbf{Held-out.} Three held-out Kodak images (04/15/24,
 descriptive n=3): RUN round-trips PASS at 3.3880/3.2986/3.6047 (mean 3.4304
 vs test-7 3.5114); CROWN6 on kodim15 exposed two encoder bugs (since fixed:
 lstsq degenerate fallback, LMS-residual assembly) and now round-trips at
-416939\,B byte-identical to the Python reference
-(\texttt{docs/EVIDENCE\_2026-09-10.md}). \textbf{Learned scale.} True e9 bar $\approx$2.94 needs
+416939\,B byte-identical to the Python reference. \textbf{Learned scale.} True e9 bar $\approx$2.94 needs
 learned-MA + per-group RCT at JXL scale, or the learned-micro arc
 (per-group learned predictors + offline-trained trees). \textbf{Speed and
 robustness.} Encode is slow (ratio game only); old 0-ctx driver hard-fails
