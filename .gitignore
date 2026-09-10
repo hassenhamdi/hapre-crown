@@ -13,3 +13,7 @@ survey/qoi/
 /cpp/crown_dec
 /cpp/crown_train
 /cpp/crown_enc_fast
+/cpp/crown_dec_fast
+/cpp/crown_train_fast
+# built paper PDF (regenerable: pdflatex + bibtex in paper/)
+/paper/paper.pdf
