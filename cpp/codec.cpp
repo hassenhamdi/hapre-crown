@@ -149,7 +149,12 @@ int wpred_from_w(const int8_t *w, int L, int T, int TL, int TR) {
 // 4x4 least squares via normal equations + partial-pivot Gaussian elimination.
 // Replicates np.linalg.lstsq (gelsd, full-rank min-norm) up to rounding of
 // wq=clip(round_half_even(sol*16)); VERIFIED block-for-block against the
-// reference (see cpp/README.md). Any systematic mismatch aborts loudly.
+// reference (see cpp/README.md). Rank-deficient blocks (e.g. flat regions:
+// exact-zero pivot) take the degenerate-direction fallback mirroring
+// crown_train.cpp solve13 [T3] — variable stays 0, and the caller's MDL gate
+// then keeps MED unless the solved taps genuinely win. Trigger condition is
+// exactly the old abort condition, so previously-passing blocks are bit-
+// identical; only previously-FATAL inputs change (they now encode).
 static void lstsq4(const double *Cg /*n*4 row-major*/, const double *yg, int n,
                    double sol[4]) {
     double G[4][4] = {}, c[4] = {};
@@ -165,7 +170,14 @@ static void lstsq4(const double *Cg /*n*4 row-major*/, const double *yg, int n,
         int piv = col;
         for (int r = col + 1; r < 4; r++)
             if (fabs(M[r][col]) > fabs(M[piv][col])) piv = r;
-        CHECK(fabs(M[piv][col]) > 0, "lstsq singular block (rank-deficient)");
+        if(!(fabs(M[piv][col]) > 0)) {
+            // Singular direction: leave variable at 0 (degenerate-block
+            // fallback, cf. solve13). Zero the column to keep elimination
+            // stable; this triggers only where the old code aborted.
+            for(int r=0;r<4;r++) M[r][col]=0;
+            M[col][col]=1; M[col][4]=0;
+            continue;
+        }
         if (piv != col) for (int j = col; j < 5; j++) std::swap(M[col][j], M[piv][j]);
         for (int r = 0; r < 4; r++) {
             if (r == col) continue;

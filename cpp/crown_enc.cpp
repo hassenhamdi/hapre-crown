@@ -268,8 +268,8 @@ struct AsmOut { std::vector<uint8_t> blob; int nmlp = 0; };
 AsmOut assemble_channel(const Plan &plan, const PrepX &D,
                         const std::vector<int32_t> &ch,
                         const std::vector<int32_t> &wavg_res,
-                        const std::vector<int32_t> &lms0_res,
-                        const std::vector<int32_t> &lms3_res,
+                        const std::vector<int32_t> &lms0_pred,
+                        const std::vector<int32_t> &lms3_pred,
                         const int32_t *mlp_res, const std::vector<uint8_t> &mlp_side,
                         const WFit &wch, bool use_mlp, int H, int W) {
     size_t N = (size_t)H * W;
@@ -293,8 +293,8 @@ AsmOut assemble_channel(const Plan &plan, const PrepX &D,
                 if (expmap[n] != gi) continue;
                 int32_t r;
                 if (ex == EX_WAVG) r = wavg_res[n];
-                else if (ex == EX_LMS0) r = lms0_res[n];
-                else if (ex == EX_LMS3) r = lms3_res[n];
+                else if (ex == EX_LMS0) r = ch[n] - lms0_pred[n];
+                else if (ex == EX_LMS3) r = ch[n] - lms3_pred[n];
                 else if (ex == EX_MLP) r = mlp_res[n];
                 else r = ch[n] - D.P[ex][n];
                 resplane[n] = r;
@@ -658,7 +658,8 @@ int enc_main2(const std::string &png, const std::string &wdir,
             auto variants = [&](const Plan &pl, bool isQ) {
                 std::vector<Var> vv;
                 // NOTE: Q uses wch with lms fields; GRID uses plain wfit.
-                // We pass lms residuals separately; wf serves both
+                // lms0/l3 carry PREDICTIONS (lms_pred_plane contract); residuals
+                // are formed here as ch[]-pred, mirroring wch["lms0"] in driver.
                 // (use/w identical; only the Python dict wrapper differs).
                 AsmOut a0; { TAcc _t(&TSet::asm_); a0 = assemble_channel(pl, D, ch, wf.res,
                     isQ ? l0 : std::vector<int32_t>(),

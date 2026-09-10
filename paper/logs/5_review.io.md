@@ -43,4 +43,11 @@ Preliminary buckets: R2-Systems-toolchain + R2-parallel-15× → fix-now (data o
 - Provenance: git init + commits 6102a03 → 82ef4df; paper banking claim cites local commit; public URL + authors still deferred (single-blind).
 - Post-fix gates (2026-09-10T11:34:52Z): braces 0, brackets 0, begin/end 21/21, 10 cites, 12 refs intact; chktex 0 errors; tell-scan clean; 2504→2594 words.
 - Still open (need author theory decisions, no data exists): MDL-gate formal proof, framing-constants completeness proof, tau-definition patch, held-out CROWN6 fallback fix, Pareto re-plot (survey data absent), full multi-seed study.
-- Prior round (2026-09-10T11:24:53Z) applied: I-01..I-04, I-06..I-11 wording, I-05/I-09 disclosure, R2-60.7%/streaming/toolchain (2363→2504 words); this round: evidence patches above (2504→2594 words).
+- Prior round (2026-09-10T11:24:53Z) applied: I-01..I-04, I-06..I-11 wording, I-05/I-09 disclosure, R2-60.7%/streaming/toolchain (2363→2504 words); evidence round (2504→2594 words).
+
+## ADDENDUM 2026-09-10 pm — kodim15 failure: bug, fixed in cpp (I-05/E2 basis corrected)
+- Verdict: YES, a real bug — two, both pre-existing and masked on test-7.
+- Bug A (robustness): lstsq4 aborted on exact-zero pivots (flat G32 blocks); fixed with solve13-mirror fallback, identical trigger condition (provably no behavior change except previously-FATAL paths).
+- Bug B (correctness): Q-family assembly fed LMS *predictions* as *residuals*; fixed to ch−pred (Python parity: `wch["lms0"]`). Masked because no test-7 winner selects Q+LMS (kodim23/crop winners all-GRID, zero predid 17/18); kodim15 ch2 (Q + LMS0 group) exposed it as Golomb-group-30 overrun. First-divergence pixel isolated to (2,158) LMS0 via DIAGPX instrumentation (all diagnostics since removed; `src/crown6.c` restored byte-identical via git checkout).
+- E2 correction: the +0.109 kodim23 "retrain delta" was planner damage from Bug B, NOT training variance — same fresh C++ weights + fixed encoder reproduce banked 403508 B / 2.7364638 exactly. I-05 single-seed caveat stands as written.
+- Validation: kodim15 416939 B byte-identical to Python reference (61a4bf88…); crop256 restored to banked 66728 / 2.7152 (4d0a9c…); kodim23 restored to banked 403508 / 2.7364638; full-7 battery re-run PASS (full7.log); seq==par bit-identical throughout.

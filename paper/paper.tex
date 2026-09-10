@@ -406,9 +406,9 @@ prediction (not finer coding) is the remaining path: our b22--b25 probes
 closed adaptivity, training-tail, header-sharing, and palette arcs with
 measured zeros. \textbf{Held-out.} Three held-out Kodak images (04/15/24,
 descriptive n=3): RUN round-trips PASS at 3.3880/3.2986/3.6047 (mean 3.4304
-vs test-7 3.5114); CROWN6 on kodim15 fails loudly at encode
-(\verb|codec.cpp:168| lstsq singular block, deterministic) --- a robustness
-gap requiring a degenerate-block fallback before transfer claims
+vs test-7 3.5114); CROWN6 on kodim15 exposed two encoder bugs (since fixed:
+lstsq degenerate fallback, LMS-residual assembly) and now round-trips at
+416939\,B byte-identical to the Python reference
 (\verb|docs/EVIDENCE_2026-09-10.md|). \textbf{Learned scale.} True e9 bar $\approx$2.94 needs
 learned-MA + per-group RCT at JXL scale, or the learned-micro arc
 (per-group learned predictors + offline-trained trees). \textbf{Speed and
