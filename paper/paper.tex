@@ -39,9 +39,9 @@ widely-used baselines fall to paired Wilcoxon tests; FLIF, JPEG-XL at two
 efforts, and tuned learned codecs stand, with losses disclosed at the same
 rigor as wins. A stacked classical ceiling with leave-one-out marginals
 marks where hand contexts end, and a mechanism-backed negative atlas maps
-where not to drill. All streams, code, and ledgers are banked
-(\texttt{CHECKSUMS.txt}, \texttt{docs/VERIFY\_report.md}, \texttt{src/*\_FORMAT.md};
-git history in-repo; public URL deferred to camera-ready).
+where not to drill. All streams, code, and ledgers are banked in the
+reproducibility supplement; the code repository will be made public
+at camera-ready.
 \end{abstract}
 
 \Section{Introduction}
@@ -205,8 +205,8 @@ MLP flags/side + W-side + group map + 7-bit [predid:5][backend:2] +
 kvals/dbias + Huffman tables/payloads + Golomb payloads + rANS groups.
 Decoder: single causal scan + RCT inverse; \texttt{p==len} asserted;
 \texttt{decode==original} byte-compared. Full byte tables are versioned with
-the code in \texttt{src/CROWN6\_FORMAT.md} (plus \texttt{src/CROWN4\_FORMAT.md} for the
-shared sections);
+the code (CROWN6\_FORMAT.md, plus CROWN4\_FORMAT.md for the shared sections;
+both in the supplement);
 C++ port (\texttt{cpp/}) reproduces reference streams sha-identically on all
 7 Kodak images given the banked weights with a 9-way parallel encoder ($\sim$27\,s/img, $\sim$117\,s
 sequential) and a pure-C++ trainer.
@@ -336,7 +336,8 @@ maxerr 3 / PSNR 47.3; $\tau$2 $\sim$2.0--2.6 at maxerr 4 / PSNR 43.5.
 
 Each row gives the config, the exact delta against its probe-local baseline,
 and the measured mechanism. (P)=probe-level exact-counted, (E)=exact-codec.
-Baselines with absolute bpp are banked per-row in \texttt{docs/ATLAS\_BASELINES.md}.
+Baselines with absolute bpp are banked per-row in the reproducibility
+supplement (\texttt{ATLAS\_BASELINES.md}).
 Full evidence per row is in the cited probe ledger.
 
 \begin{figure}[ht]
@@ -349,7 +350,7 @@ red = loss, green = win retired in-frame. See per-row ledgers.}
 
 \begin{table}[h]
 \centering\small
-\caption{Dead-end mechanisms (abridged; per-row baselines in \texttt{docs/ATLAS\_BASELINES.md}, full text in probe ledgers).}
+\caption{Dead-end mechanisms (abridged; per-row baselines in the supplement, full text in probe ledgers).}
 \label{tab:negatives}
 \begin{tabular}{@{}llp{2.86in}@{}}
 \toprule
