@@ -1,0 +1,371 @@
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <assert.h>
+// HAPRE-C: YCoCg-R + causal MED residuals + canonical-Huffman pack/unpack + reconstruct.
+static inline int med(int a,int b,int c){ if(c>=a&&c>=b) return a<b?a:b; if(c<=a&&c<=b) return a>b?a:b; return a+b-c; }
+
+void ycocg_fwd(const uint8_t *rgb, int H, int W, int16_t *yc) {
+  for(int i=0;i<H;i++) for(int j=0;j<W;j++){
+    int R=rgb[(i*W+j)*3+0], G=rgb[(i*W+j)*3+1], B=rgb[(i*W+j)*3+2];
+    int Co=R-B, t=B+(Co>>1), Cg=G-t, Y=t+(Cg>>1);
+    yc[(0*H+i)*W+j]=(int16_t)Y; yc[(1*H+i)*W+j]=(int16_t)Co; yc[(2*H+i)*W+j]=(int16_t)Cg;
+  }
+}
+void ycocg_inv(const int16_t *yc, int H, int W, uint8_t *rgb) {
+  for(int i=0;i<H;i++) for(int j=0;j<W;j++){
+    int Y=yc[(0*H+i)*W+j], Co=yc[(1*H+i)*W+j], Cg=yc[(2*H+i)*W+j];
+    int t=Y-(Cg>>1), G=Cg+t, B=t-(Co>>1), R=Co+B;
+    if(R<0)R=0; if(R>255)R=255; if(G<0)G=0; if(G>255)G=255; if(B<0)B=0; if(B>255)B=255;
+    rgb[(i*W+j)*3+0]=(uint8_t)R; rgb[(i*W+j)*3+1]=(uint8_t)G; rgb[(i*W+j)*3+2]=(uint8_t)B;
+  }
+}
+// Exact causal MED residuals using reconstructed (== originals, lossless) neighbors + histograms over idx=r+256 clipped 0..512.
+void med_residuals_exact(const int16_t *img, int H, int W, int16_t *res, int64_t hist[3][1025]) {
+  for(int k=0;k<3;k++) for(int i=0;i<2049;i++) hist[k][i]=0;
+  for(int k=0;k<3;k++){
+    const int16_t *P=img+k*H*W; int16_t *R=res+k*H*W;
+    for(int i=0;i<H;i++){
+      for(int j=0;j<W;j++){
+        int a,b,c;
+        if(i==0&&j==0){a=b=c=0;}
+        else if(i==0){a=P[j-1];b=c=a;}
+        else if(j==0){b=P[(i-1)*W];a=c=b;}
+        else{a=P[i*W+j-1];b=P[(i-1)*W+j];c=P[(i-1)*W+j-1];}
+        int p=med(a,b,c);
+        int r=(int)P[i*W+j]-p;
+        R[i*W+j]=(int16_t)r;
+        int idx=r+512; if(idx<0||idx>1024) return (size_t)0; if(0){} 
+        hist[k][idx]++;
+      }
+    }
+  }
+}
+size_t huff_pack(const int16_t *res, int N, const uint32_t *codes, const uint8_t *lens, uint8_t *out, size_t outcap) {
+  size_t bytepos=0; uint64_t buf=0; int nbits=0;
+  for(int n=0;n<N;n++){
+    int r=res[n]; int idx=r+512; if(idx<0||idx>1024) return (size_t)0; if(0){} 
+    buf=(buf<<lens[idx])|codes[idx]; nbits+=lens[idx];
+    while(nbits>=8){ nbits-=8; if(bytepos>=outcap) return 0; out[bytepos++]=(uint8_t)(buf>>nbits); buf&=((nbits)?((1ULL<<nbits)-1):0); }
+  }
+  if(nbits){ if(bytepos>=outcap) return 0; out[bytepos++]=(uint8_t)(buf<<(8-nbits)); }
+  return bytepos;
+}
+int huff_unpack(const uint8_t *in_, size_t inlen, int N, const uint32_t *codes, const uint8_t *lens, int16_t *res) {
+  // Fast path: 8-bit LUT for codes with len<=8; tree fallback otherwise.
+  int16_t lut_sym[256]; uint8_t lut_len[256];
+  for(int i=0;i<256;i++){lut_sym[i]=-9999;lut_len[i]=0;}
+  int maxnodes=1400; int (*ch)[2]=(int(*)[2])malloc(sizeof(int)*2*maxnodes);
+  int *sval=(int*)malloc(sizeof(int)*maxnodes);
+  if(!ch||!sval){free(ch);free(sval);return -3;}
+  for(int i=0;i<maxnodes;i++){ch[i][0]=ch[i][1]=-1;sval[i]=-9999;}
+  int nn=1;
+  for(int s=0;s<2049;s++){ uint8_t ln=lens[s]; if(!ln) continue; uint32_t cd=codes[s];
+    if(ln<=8){ uint32_t base=cd<<(8-ln); for(uint32_t t=0;t<(1u<<(8-ln));t++){ lut_sym[base|t]=(int16_t)(s-1024); lut_len[base|t]=ln; } }
+    int node=0;
+    for(int b=ln-1;b>=0;b--){ int bit=(cd>>b)&1;
+      if(ch[node][bit]==-1){ if(nn>=maxnodes){free(ch);free(sval);return -2;} ch[node][bit]=nn; ch[nn][0]=ch[nn][1]=-1; sval[nn]=-9999; nn++; }
+      node=ch[node][bit]; }
+    sval[node]=s-1024; }
+  size_t bitpos=0; size_t nbytes=inlen;
+  // bit reader with 16-bit window
+  for(int n=0;n<N;n++){
+    size_t byte=bitpos>>3; int off=bitpos&7;
+    uint16_t win;
+    if(byte+1<nbytes) win=((uint16_t)in_[byte]<<8)|in_[byte+1];
+    else if(byte<nbytes) win=((uint16_t)in_[byte]<<8);
+    else {free(ch);free(sval);return -1;}
+    uint8_t key=(win>>(8-off))&0xFF;
+    if(lut_len[key]){ res[n]=lut_sym[key]; bitpos+=lut_len[key]; continue; }
+    int node=0;
+    for(;;){ if((bitpos>>3)>=nbytes){free(ch);free(sval);return -1;}
+      int bt=in_[bitpos>>3]; int bit=(bt>>(7-(bitpos&7)))&1; bitpos++; node=ch[node][bit];
+      if(node<0){free(ch);free(sval);return -1;}
+      if(sval[node]!=-9999){ res[n]=(int16_t)sval[node]; break; } } }
+  free(ch);free(sval); return 0;
+}
+void med_reconstruct(const int16_t *res, int H, int W, int16_t *img) {
+  for(int k=0;k<3;k++){
+    const int16_t *R=res+k*H*W; int16_t *P=img+k*H*W;
+    for(int i=0;i<H;i++) for(int j=0;j<W;j++){
+      int a,b,c;
+      if(i==0&&j==0){a=b=c=0;}
+      else if(i==0){a=P[j-1];b=c=a;}
+      else if(j==0){b=P[(i-1)*W];a=c=b;}
+      else{a=P[i*W+j-1];b=P[(i-1)*W+j];c=P[(i-1)*W+j-1];}
+      // NOTE: identical convention to med_residuals_exact (required for lossless round-trip).
+      P[i*W+j]=(int16_t)(med(a,b,c)+R[i*W+j]);
+    }
+  }
+}
+// ---- CTX9 extension: energy-class contexts (0..8) per channel, shared MED core ----
+void med_res_ctx9(const int16_t *img, int H, int W, int16_t *res, uint8_t *ctx, int64_t hist[3][9][513]) {
+  for(int k=0;k<3;k++) for(int e=0;e<9;e++) for(int i=0;i<2049;i++) hist[k][e][i]=0;
+  for(int k=0;k<3;k++){
+    const int16_t *P=img+k*H*W; int16_t *R=res+k*H*W; uint8_t *C=ctx+k*H*W;
+    for(int i=0;i<H;i++) for(int j=0;j<W;j++){
+      int a,b,c;
+      if(i==0&&j==0){a=b=c=0;} else if(i==0){a=P[j-1];b=c=a;} else if(j==0){b=P[(i-1)*W];a=c=b;}
+      else{a=P[i*W+j-1];b=P[(i-1)*W+j];c=P[(i-1)*W+j-1];}
+      int e=(abs(a-c)+abs(b-c))>>4; if(e>8)e=8;
+      int r=(int)P[i*W+j]-med(a,b,c);
+      R[i*W+j]=(int16_t)r; C[i*W+j]=(uint8_t)e;
+      int idx=r+512; if(idx<0||idx>1024) return (size_t)0; if(0){} 
+      hist[k][e][idx]++;
+    }
+  }
+}
+// pack with per-(ch,ctx) tables: codes[k][e][2049], lens[k][e][2049]
+size_t huff_pack_ctx9(const int16_t *res, const uint8_t *ctx, int N, const uint32_t *codes, const uint8_t *lens, uint8_t *out, size_t outcap) {
+  size_t bytepos=0; uint64_t buf=0; int nbits=0;
+  for(int n=0;n<N*3;n++){
+    int k=n/N, m=n%N; int e=ctx[n];
+    int r=res[n]; int idx=r+512; if(idx<0||idx>1024) return (size_t)0; if(0){} 
+    size_t t=((size_t)k*9+e)*2049+idx;
+    buf=(buf<<lens[t])|codes[t]; nbits+=lens[t];
+    while(nbits>=8){ nbits-=8; if(bytepos>=outcap) return 0; out[bytepos++]=(uint8_t)(buf>>nbits); buf&=((nbits)?((1ULL<<nbits)-1):0); }
+  }
+  if(nbits){ if(bytepos>=outcap) return 0; out[bytepos++]=(uint8_t)(buf<<(8-nbits)); }
+  return bytepos;
+}
+int huff_unpack_ctx9(const uint8_t *in_, size_t inlen, int N, const uint32_t *codes, const uint8_t *lens, int16_t *res, uint8_t *ctx, int H, int W) {
+  // decode symbol-by-symbol with tree per (k,e); rebuild ctx on the fly from recon (streaming, O(W) rows kept via full img buffer here)
+  // Build per-(k,e) decode trees
+  int T=27, maxnodes=1100;
+  static int ch[27][1100][2]; static int sv[27][1100];
+  for(int t=0;t<T;t++) for(int i=0;i<maxnodes;i++){ch[t][i][0]=ch[t][i][1]=-1;sv[t][i]=-9999;}
+  for(int k=0;k<3;k++) for(int e=0;e<9;e++){ int t=k*9+e, nn=1;
+    for(int s=0;s<2049;s++){ size_t u=t*2049+s; uint8_t ln=lens[u]; if(!ln) continue; uint32_t cd=codes[u];
+      int node=0;
+      for(int b=ln-1;b>=0;b--){ int bit=(cd>>b)&1;
+        if(ch[t][node][bit]==-1){ if(nn>=maxnodes) return -2; ch[t][node][bit]=nn; ch[t][nn][0]=ch[t][nn][1]=-1; sv[t][nn]=-9999; nn++; }
+        node=ch[t][node][bit]; }
+      sv[t][node]=s-1024; } }
+  // recon image buffer for ctx computation
+  int16_t *img=(int16_t*)calloc((size_t)3*N,sizeof(int16_t));
+  if(!img) return -3;
+  size_t bitpos=0;
+  for(int k=0;k<3;k++) for(int i=0;i<H;i++) for(int j=0;j<W;j++){
+    int16_t *P=img+k*N;
+    int a,b,c;
+    if(i==0&&j==0){a=b=c=0;} else if(i==0){a=P[j-1];b=c=a;} else if(j==0){b=P[(i-1)*W];a=c=b;}
+    else{a=P[i*W+j-1];b=P[(i-1)*W+j];c=P[(i-1)*W+j-1];}
+    int e=(abs(a-c)+abs(b-c))>>4; if(e>8)e=8;
+    int t=k*9+e, node=0, sym=0;
+    for(;;){ if((bitpos>>3)>=inlen){free(img);return -1;}
+      int byte=in_[bitpos>>3]; int bit=(byte>>(7-(bitpos&7)))&1; bitpos++; node=ch[t][node][bit];
+      if(node<0){free(img);return -1;}
+      if(sv[t][node]!=-9999){ sym=sv[t][node]; break; } }
+    int p=med(a,b,c);
+    P[i*W+j]=(int16_t)(p+sym);
+    res[(k*N+i*W+j)]=(int16_t)sym; ctx[k*N+i*W+j]=(uint8_t)e;
+  }
+  free(img); return 0;
+}
+// ---- NL-LS extension: per-(ch,ctx) 6-tap fixed-point predictor, coeffs int16 Q8 ----
+void nlls_res_ctx9(const int16_t *img, int H, int W, const int16_t *coef, const uint8_t *medflag, int16_t *res, uint8_t *ctx, int64_t hist[3][9][513]) {
+  for(int k=0;k<3;k++) for(int e=0;e<9;e++) for(int i=0;i<2049;i++) hist[k][e][i]=0;
+  for(int k=0;k<3;k++){
+    const int16_t *P=img+k*H*W; int16_t *R=res+k*H*W; uint8_t *C=ctx+k*H*W;
+    const int16_t *Wc=coef+k*9*6;
+    for(int i=0;i<H;i++) for(int j=0;j<W;j++){
+      int a,b,c;
+      if(i==0&&j==0){a=b=c=0;} else if(i==0){a=P[j-1];b=c=a;} else if(j==0){b=P[(i-1)*W];a=c=b;}
+      else{a=P[i*W+j-1];b=P[(i-1)*W+j];c=P[(i-1)*W+j-1];}
+      int e=(abs(a-c)+abs(b-c))>>4; if(e>8)e=8;
+      const int16_t *w=Wc+e*6;
+      int p=(w[0]+w[1]*a+w[2]*b+w[3]*c+w[4]*abs(a-b)+w[5]*(a+b-2*c)+128)>>8;
+      int r=(int)P[i*W+j]-p;
+      R[i*W+j]=(int16_t)r; C[i*W+j]=(uint8_t)e;
+      int idx=r+512; if(idx<0||idx>1024) return (size_t)0; if(0){} 
+      hist[k][e][idx]++;
+    }
+  }
+}
+// NL-LS streaming decode: recompute ctx+pred from recon, decode symbol, reconstruct.
+int nlls_unpack(const uint8_t *in_, size_t inlen, int N, const int16_t *coef, const uint8_t *medflag, const uint32_t *codes, const uint8_t *lens, int16_t *res, int16_t *img_out, int H, int W) {
+  int T=27, maxnodes=1100;
+  static int ch[27][1100][2]; static int sv[27][1100];
+  for(int t=0;t<T;t++) for(int i=0;i<maxnodes;i++){ch[t][i][0]=ch[t][i][1]=-1;sv[t][i]=-9999;}
+  for(int k=0;k<3;k++) for(int e=0;e<9;e++){ int t=k*9+e, nn=1;
+    for(int s=0;s<2049;s++){ size_t u=t*2049+s; uint8_t ln=lens[u]; if(!ln) continue; uint32_t cd=codes[u];
+      int node=0;
+      for(int b=ln-1;b>=0;b--){ int bit=(cd>>b)&1;
+        if(ch[t][node][bit]==-1){ if(nn>=maxnodes) return -2; ch[t][node][bit]=nn; ch[t][nn][0]=ch[t][nn][1]=-1; sv[t][nn]=-9999; nn++; }
+        node=ch[t][node][bit]; }
+      sv[t][node]=s-1024; } }
+  int16_t *img=(int16_t*)calloc((size_t)3*N,sizeof(int16_t));
+  if(!img) return -3;
+  size_t bitpos=0;
+  for(int k=0;k<3;k++){ int16_t *P=img+k*N; const int16_t *Wc=coef+k*9*6;
+    for(int i=0;i<H;i++) for(int j=0;j<W;j++){
+      int a,b,c;
+      if(i==0&&j==0){a=b=c=0;} else if(i==0){a=P[j-1];b=c=a;} else if(j==0){b=P[(i-1)*W];a=c=b;}
+      else{a=P[i*W+j-1];b=P[(i-1)*W+j];c=P[(i-1)*W+j-1];}
+      int e=(abs(a-c)+abs(b-c))>>4; if(e>8)e=8;
+      int t=k*9+e, node=0, sym=0;
+      for(;;){ if((bitpos>>3)>=inlen){free(img);return -1;}
+        int byte=in_[bitpos>>3]; int bit=(byte>>(7-(bitpos&7)))&1; bitpos++; node=ch[t][node][bit];
+        if(node<0){free(img);return -1;}
+        if(sv[t][node]!=-9999){ sym=sv[t][node]; break; } }
+      const int16_t *w=Wc+e*6;
+      int p=(w[0]+w[1]*a+w[2]*b+w[3]*c+w[4]*abs(a-b)+w[5]*(a+b-2*c)+128)>>8;
+      P[i*W+j]=(int16_t)(p+sym);
+      res[k*N+i*W+j]=(int16_t)sym;
+    } }
+  if(img_out) memcpy(img_out,img,(size_t)3*N*sizeof(int16_t));
+  free(img); return 0;
+}
+// ---- rANS order-0 (12-bit precision) per plane ----
+#define RANS_L (1u<<23)
+void rans_norm(const int64_t *hist, int A, const int *syms, uint16_t *freq, int *cum) {
+  int64_t tot=0; for(int i=0;i<A;i++) tot+=hist[syms[i]];
+  int rem=4096;
+  for(int i=0;i<A;i++){ int f=(int)((hist[syms[i]]*4096+tot/2)/tot); if(f<1)f=1; freq[i]=(uint16_t)f; rem-=f; }
+  // fix rounding drift on largest
+  int bi=0; for(int i=1;i<A;i++) if(hist[syms[i]]>hist[syms[bi]]) bi=i;
+  freq[bi]=(uint16_t)((int)freq[bi]+rem);
+  int c=0; for(int i=0;i<A;i++){ cum[i]=c; c+=freq[i]; }
+}
+// encode backward into out (caller: byte buffer + pos pointer from end). returns bytes used.
+size_t rans_encode(const int16_t *syms_in, int N, const int *lut, const uint16_t *freq, const int *cum, int A, uint8_t *out) {
+  (void)A;
+  uint32_t R=RANS_L; uint8_t *p=out;
+  // encode from last to first, flushing bytes (LSB first)
+  // use reverse buffer: write to temp end
+  for(int n=N-1;n>=0;n--){
+    int r=syms_in[n]; int idx=r+512; if(idx<0||idx>1024) return (size_t)0; if(0){} 
+    int s=lut[idx]; uint32_t f=freq[s]; uint32_t c=cum[s];
+    uint32_t Rmax=((RANS_L>>12)<<8)*f; // renormalization threshold factor
+    while(R>=( (RANS_L>>12) * f * 4 )){ *p++=(uint8_t)(R&0xFF); R>>=8; }
+    R=((R/f)<<12) + c + (R%f);
+  }
+  // flush state (4 bytes LE)
+  *p++=(uint8_t)(R&0xFF); *p++=(uint8_t)((R>>8)&0xFF); *p++=(uint8_t)((R>>16)&0xFF); *p++=(uint8_t)((R>>24)&0xFF);
+  return (size_t)(p-out);
+}
+// decode forward: needs symbol LUT over 4096 states? Use freq/cum search per step (slow but exact); fast path via 12-bit table built by caller.
+void rans_slots(const uint16_t *freq, const int *cum, int A, int *slot2sym) {
+  for(int s=0;s<A;s++) for(uint32_t i=0;i<freq[s];i++) slot2sym[cum[s]+i]=s;
+}
+int rans_decode(const uint8_t *in_, size_t inlen, int N, const int *syms, const uint16_t *freq, const int *cum, int A, const int *slot2sym, int16_t *out) {
+  (void)syms;
+  if(inlen<4) return -1;
+  const uint8_t *p=in_+inlen-4;
+  uint32_t R=(uint32_t)p[0]|((uint32_t)p[1]<<8)|((uint32_t)p[2]<<16)|((uint32_t)p[3]<<24);
+  const uint8_t *bot=in_;
+  for(int n=0;n<N;n++){
+    uint32_t slot=R&0xFFF;
+    int s=slot2sym[slot];
+    if(s<0||s>=A) return -1;
+    out[n]=(int16_t)(syms[s]-1024);
+    R=freq[s]*(R>>12)+slot-cum[s];
+    while(R<RANS_L){ if(p<=bot) { if(n==N-1) break; return -1; } p--; R=(R<<8)|*p; }
+  }
+  return 0;
+}
+// ---- RUN extension: flat-run two-stream coding on MED+CTX9 path ----
+// Encode: single causal pass. When (j+1<W && a==b && b==c && c==d): count run L of pixels equal to a
+// (from originals), append L to runs[], emit run pixels' recon (no main symbols). Else regular MED symbol.
+// Interruption pixel (first non-matching or row end handling): regular path symbol.
+// Row end: runs stop at row end (no interruption symbol consumed).
+// out_main_sym/out_main_ctx: parallel arrays; out_runs: lengths; returns counts via n_main/n_runs.
+void med_run_encode(const int16_t *img, int H, int W, int16_t *msym, uint8_t *mctx, int *runs, int *n_main, int *n_runs, int64_t hist[3][9][513]) {
+  for(int k=0;k<3;k++) for(int e=0;e<9;e++) for(int i=0;i<2049;i++) hist[k][e][i]=0;
+  *n_main=0; *n_runs=0;
+  for(int k=0;k<3;k++){
+    const int16_t *P=img+k*H*W;
+    for(int i=0;i<H;i++) for(int j=0;j<W;j++){
+      int a,b,c,d;
+      if(i==0&&j==0){a=b=c=d=0;}
+      else if(i==0){a=P[j-1];b=c=a;d=(j+1<W)?P[j]:a;}
+      else if(j==0){b=P[(i-1)*W];a=c=b;d=P[(i-1)*W+1];}
+      else{a=P[i*W+j-1];b=P[(i-1)*W+j];c=P[(i-1)*W+j-1];d=(j+1<W)?P[(i-1)*W+j+1]:b;}
+      if(j+1<W && a==b && b==c && c==d && !(i==0&&j==0)){
+        int L=0;
+        while(j+L<W && P[i*W+j+L]==a) L++;
+        if(L>=1){ runs[(*n_runs)++]=L; j+=L-1; continue; }
+        /* L==0: fall through to regular path */
+      }
+        int e=(abs(a-c)+abs(b-c))>>4; if(e>8)e=8;
+        int r=(int)P[i*W+j]-med(a,b,c);
+        int n=*n_main;
+        msym[n]=(int16_t)r; mctx[n]=(uint8_t)(k*9+e);
+        int idx=r+512; if(idx<0||idx>1024) return (size_t)0; if(0){} 
+        hist[k][e][idx]++;
+        (*n_main)++;
+    }
+  }
+}
+// gamma writer/reader for run lengths (L>=1)
+static void gamma_put(uint8_t *o, size_t oc, size_t *bp, unsigned L){
+  int b=0; unsigned t=L; while(t>>=1) b++;
+  for(int i=0;i<b;i++){ /*0 bit*/ *bp+=1; }
+  // write bits MSB-first of L (b+1 bits)
+  for(int i=b;i>=0;i--){ size_t p=*bp; if((p>>3)>=oc) return; if((L>>i)&1) o[p>>3]|=(uint8_t)(1<<(7-(p&7))); (*bp)++; }
+  // NOTE: zero bits need no set (buffer must be zeroed by caller)
+}
+static unsigned gamma_get(const uint8_t *in_, size_t inlen, size_t *bp){
+  int b=0;
+  for(;;){ size_t p=*bp; unsigned bit=(p>>3)<inlen?((in_[p>>3]>>(7-(p&7)))&1):0; (*bp)++; if(bit) break; b++; }
+  unsigned v=1;
+  for(int i=0;i<b;i++){ size_t p=*bp; unsigned bit=(p>>3)<inlen?((in_[p>>3]>>(7-(p&7)))&1):0; (*bp)++; v=(v<<1)|bit; }
+  return v;
+}
+size_t runs_pack(const int *runs, int n_runs, uint8_t *out, size_t outcap){
+  size_t bp=0; memset(out,0,outcap);
+  for(int i=0;i<n_runs;i++) gamma_put(out,outcap,&bp,(unsigned)runs[i]+1u);
+  return (bp+7)>>3;
+}
+// Streaming run decode with recon: mirrors med_run_encode state machine.
+// main stream decoded via per-(k,e) trees (same as huff_unpack_ctx9 but symbols pulled on demand);
+// run stream consumed at run conditions. Produces recon img planes.
+int med_run_unpack(const uint8_t *main_, size_t mainlen, const uint8_t *run_, size_t runlen,
+                   const uint32_t *codes, const uint8_t *lens, int16_t *img, int H, int W){
+  int T=27, maxnodes=1100;
+  static int ch[27][1100][2]; static int sv[27][1100];
+  for(int t=0;t<T;t++) for(int i=0;i<maxnodes;i++){ch[t][i][0]=ch[t][i][1]=-1;sv[t][i]=-9999;}
+  for(int k=0;k<3;k++) for(int e=0;e<9;e++){ int t=k*9+e, nn=1;
+    for(int s=0;s<2049;s++){ size_t u=t*2049+s; uint8_t ln=lens[u]; if(!ln) continue; uint32_t cd=codes[u];
+      int node=0;
+      for(int b=ln-1;b>=0;b--){ int bit=(cd>>b)&1;
+        if(ch[t][node][bit]==-1){ if(nn>=maxnodes) return -2; ch[t][node][bit]=nn; ch[t][nn][0]=ch[t][nn][1]=-1; sv[t][nn]=-9999; nn++; }
+        node=ch[t][node][bit]; }
+      sv[t][node]=s-1024; } }
+  size_t mbp=0, rbp=0;
+  for(int k=0;k<3;k++){ int16_t *P=img+k*H*W;
+    for(int i=0;i<H;i++) for(int j=0;j<W;){
+      int a,b,c,d;
+      if(i==0&&j==0){a=b=c=d=0;}
+      else if(i==0){a=P[j-1];b=c=a;d=(j+1<W)?P[j]:a;}
+      else if(j==0){b=P[(i-1)*W];a=c=b;d=P[(i-1)*W+1];}
+      else{a=P[i*W+j-1];b=P[(i-1)*W+j];c=P[(i-1)*W+j-1];d=(j+1<W)?P[(i-1)*W+j+1]:b;}
+      if(j+1<W && a==b && b==c && c==d && !(i==0&&j==0)){
+        unsigned L=gamma_get(run_,runlen,&rbp);
+        for(unsigned t2=0;t2<L && j<W;t2++,j++) P[i*W+j]=(int16_t)a;
+        continue;
+      }
+      int e=(abs(a-c)+abs(b-c))>>4; if(e>8)e=8;
+      int t=k*9+e, node=0, sym=0;
+      for(;;){ if((mbp>>3)>=mainlen) return -1;
+        int byte=main_[mbp>>3]; int bit=(byte>>(7-(mbp&7)))&1; mbp++; node=ch[t][node][bit];
+        if(node<0) return -1;
+        if(sv[t][node]!=-9999){ sym=sv[t][node]; break; } }
+      P[i*W+j]=(int16_t)(med(a,b,c)+sym);
+      j++;
+    } }
+  return 0;
+}
+// generic ordered packer for (symbol, tablekey) streams
+size_t pack_syms(const int16_t *syms, const uint8_t *keys, int N, const uint32_t *codes, const uint8_t *lens, uint8_t *out, size_t outcap){
+  size_t bytepos=0; uint64_t buf=0; int nbits=0;
+  for(int n=0;n<N;n++){
+    int r=syms[n]; int idx=r+512; if(idx<0||idx>1024) return (size_t)0; if(0){} 
+    size_t t=(size_t)keys[n]*2049+idx;
+    buf=(buf<<lens[t])|codes[t]; nbits+=lens[t];
+    while(nbits>=8){ nbits-=8; if(bytepos>=outcap) return 0; out[bytepos++]=(uint8_t)(buf>>nbits); buf&=((nbits)?((1ULL<<nbits)-1):0); }
+  }
+  if(nbits){ if(bytepos>=outcap) return 0; out[bytepos++]=(uint8_t)(buf<<(8-nbits)); }
+  return bytepos;
+}

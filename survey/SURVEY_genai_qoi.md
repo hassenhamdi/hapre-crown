@@ -1,0 +1,89 @@
+# Survey: GenAI lossless compression + QOI teardown → portable ideas for our codec
+
+Date: 2026-09-07. Codec state: CROWN-era probe 3.272 bpp (E16 + Huff/Golomb/rANS 3-way, Boss-3 WebP-m6 dead probe-level).
+Bosses standing: **JXL-e3 3.23 (−1.2% from 3.27)** and **final JXL-e9 3.03 (−7.4%)**.
+Constraints: CPU edge, no GPU/torch at runtime, C-speed decode. Method: alphaXiv (12 papers) + Tavily (web/repo/bench) + full qoi.h read (cloned at `survey/qoi/`).
+
+Unit note: neural papers quote **bpsp** (bits/sub-pixel = our bpp) or **total bpp** (÷3 = our bpp). SEEC's table is total bpp (their Kodak 8.53 = 2.84 bpsp; their JXL 9.18 = 3.06 ≈ our JXL-e9 3.03 ✓). All numbers below normalized to **bpsp** for comparability.
+
+---
+
+## 1. Paper table
+
+| # | Title / authors / year | Core mechanism | Kodak (bpsp) | Why relevant to us |
+|---|---|---|---|---|
+| 1 | CALLIC: Content-Adaptive Learning for LIC — Li, Bai, Wang, Jiang, Liu, Gao (HIT/PKU), Dec 2024 (AAAI25) [ID=2412.17464](https://www.alphaxiv.org/abs/2412.17464) | Masked Gated ConvFormer (content-adaptive conv gating ≈ local attention); per-image **LoRA low-rank adapters** (incl. Tucker-decomposed depthwise convs) fine-tuned under **2-stage MDL** objective `L(φ)+log1/q(x;θ,φ)`; Rate-guided Progressive FT (high-entropy patches first); Cache-then-Crop Inference | **2.54** (base MGCF 2.77; JXL 2.87, DLPR 2.86, ArIB-BPS 2.78, MGCF 575K params, enc 9.7s/dec 1.6s) | **Highest-signal paper.** MDL framing = our "always count header bytes" lesson formalized. RPFT high-entropy-first mirrors our hillclimb instinct. Per-image adapters are the principled version of per-group/per-block adaptation. Rank-ablation (r=8 best, r=16 worse) proves side-info overfitting is real — same failure mode as our LPC-3 (−4%). |
+| 2 | Rethinking AR Models via Hierarchical Parallelism + Progressive Adaptation — Li et al. (HIT), Nov 2025 [ID=2511.10991](https://www.alphaxiv.org/abs/2511.10991) | HPAC: group-parallel scan factorization `s(r,c)=c+r·δ` (δ=2 ≈ full-serial rate at P steps); Cache-then-Select Inference; Adaptive Focus Coding (truncated PMF for large alphabets); SARP-FT spatially-contiguous high-rate-first LoRA tuning | **~2.52** (677K params, ~8.4s/img, ~700× faster than FNLIC) | Group-scan factorization is a portable *schedule* idea (parallel-decodable groups with full rate). AFC's PMF truncation maps to our ±1024 alphabet handling. Confirms per-image adaptation > bigger amortized model. |
+| 3 | SEEC: Segmentation-Assisted Multi-Entropy Models — Zheng, Ren, Li (PKU), Sep 2025 [ID=2509.07704](https://www.alphaxiv.org/abs/2509.07704) | N=2 semantic-region entropy models (same ELIC backbone as DLPR, so gain is pure context specialization); channel-specific mixture weights; mask via JPEG-XL (0.02 bpsp overhead, 0.14s seg + 0.06s mask codec) | **2.84** (DLPR 2.86 → SEEC 2.84; FLIF 3.01, JXL 3.06 in their total-bpp/3 units) | **Direct validation of our CROWN thesis**: multiple specialized distributions beat one global model (+0.15 total-bpp ablation for removing SMEM). N=2 optimal (N=8: content bits fall, mask bits eat the gain — same fragmentation curve as our fixed-bands 0.4%). ROI-coding variant = free application idea. Their "segmentation" ≈ our texture clustering done with a GPU net; ours must be a cheap integer proxy. |
+| 4 | LLM for LIC with Visual Prompts — SJTU, Feb 2025 [ID=2502.16163](https://www.alphaxiv.org/abs/2502.16163) | Frozen LLM + visual prompts → GMM head, LoRA-tuned | **2.83** (vs DLPR 2.86, JXL 2.87, FLIF 2.90, prev LLM 4.84) | Ceiling marker: a whole LLM buys 0.03 over DLPR. Hype-only for us, but its comparison table is the cleanest classical-vs-learned anchor set. |
+| 5 | LUMI: Tokenizer-Agnostic LLM compression — Jul 2026 [ID=2607.08221](https://www.alphaxiv.org/abs/2607.08221); Diffusion-LM pixel transmission — Jun 2026 [ID=2606.06273](https://www.alphaxiv.org/abs/2606.06273) | Text-interface tokenization / diffusionCtx + channel coding | n/a (LLM-tier) | Hype-only (§4). Diffusion is lossy/perceptual; stochastic sampling is the enemy of bit-exactness. |
+| 6 | Chained Lightweight Neural Predictors + Information Inheritance — Kim & Belyaev (ITMO), Apr 2026 [ID=2604.15472](https://www.alphaxiv.org/abs/2604.15472) | Chain of minimal Markov-order predictors (MLP→CNN→GRU by order); higher units inherit lower logits `l_i = α·l'_i + β·l'_{i−1}` (PPM-style, +1–14% BPS reduction); adaptive unit disabling via `D_i = L + λ·T`; semi-adaptive (weights in header, no decoder-side training) | Near-PAC ratios at 1.2–6.3× enc / 2.8–12.3× dec throughput (GPU-KB/s tier, universal-data bench) | **Most CPU-symmetric neural design found.** Cascade low→high order + inheritance = formal justification for extending our E16 expert ladder with ordered fallback. `D_i=L+λT` is the exact gate our per-group 3-way selection needs. Semi-adaptive (no decoder training) is the only viable adaptation shape for us. |
+| 7 | FlashGMM — Murai, Lin, Katto (Waseda/ISCT), Sep 2025 [ID=2509.18815](https://www.alphaxiv.org/abs/2509.18815) | rANS-with-GMM without CDF tables: on-the-fly CDF + **binary-search inverse CDF** (monotonicity), logistic Φ approx, SIMD across K≤4 mixtures | **−4.28% BD-rate vs GSM, faster than GSM** (~90× vs CompressAI-GMM) | **Directly portable to our rANS backend**: per-group/per-symbol CDF handling is our hot path; table-free inverse CDF + cheap Φ approx + SIMD-across-components are implementable in C with zero model cost. |
+| 8 | Cool-chic 5.0 — Ladune et al. (Orange), May 2026 [ID=2605.02726](https://www.alphaxiv.org/abs/2605.02726) | Overfitted hierarchical latents + Laplace ARM; **IFCE inter-feature conditioning (+3.8% ablation)**, hyperlatents (+0.5%), stabilizer layer; 0.5–3 kMAC/px; −11% vs VVC; GPU enc ~min/10k iters | Lossy codec (BD-rate), Kodak-weak: **1.5–2.5 KB net-param overhead** ≈ 20%+ of file on small images | Two portable ideas (IFCE, hyperlatent — §3) + one quantitative warning that mirrors our retired transmitted-LF family: ~2KB fixed side info ≈ 0.04 bpsp on Kodak — affordable ONLY if gated per image. N-O/HyperCool variants attack enc-time; irrelevant to us (we have no enc-time problem). |
+| 9 | LIC-HPCM: Hierarchical Progressive Context Modeling — Li et al. (USTC), Jul 2025 [ID=2507.19125](https://www.alphaxiv.org/abs/2507.19125) | **Coarse→fine coding schedule** (code 4×-downscaled sub-latents first for long-range context, fill back up); progressive context fusion across steps (removal = +4.71% BD-rate); lossy, 68–90M params | Lossy SOTA (−19% BD-rate vs VTM on Kodak) | Lossy-only, GPU-only — but the *schedule* (coarse lattice first, then condition fine on coarse) is the untested **LF-PREDICTION** weapon from our cycle-3 log, now with SOTA evidence behind it. No side stream needed if coarse = decimated already-coded pixels. |
+| 10 | C3 / Good-Cheap-Fast WD-C3 — Kim et al. 2024; Ballé et al. 2025 [ID=2412.00505](https://www.alphaxiv.org/abs/2412.00505); FNLIC — Zhang et al. CVPR25 | Overfitted image codec (multi-res latents + tiny ARM + synthesis); FNLIC lossless variant ≈ JPEG-XL | Lossy (≈HiFiC quality at 100× fewer MACs) | Perceptual/overfitted track; confirms overfitting beats generalization per-bit, but enc = minutes–hour GPU. Not portable except philosophy. |
+| 11 | FLIF/MANIAC (Sneyers & Wuille 2016, flif.info) → **JPEG-XL MA-trees** (Alakuijala et al. 2019; Cloudinary modular-mode explainer; JXL spec §5.2.2) | **Signaled per-image decision tree**: inner nodes test properties (N>50, W−WW>0, channel cross-terms, position) → leaf = (predictor, histogram). JXL additions: static (non-adaptive) distributions per leaf for decode speed + **histogram sharing across leaves**. Tree itself coded with fixed 6-context model; enc balances tree cost vs gain | FLIF 2.90–3.01; JXL 2.87–3.06 (per CALLIC/SEEC tables); our bosses e3=3.23/e9=3.03 | **The single most relevant classical lineage.** Our LOCO-365 keys + autoK quantile groups + per-group best-of-6/3-way IS a hand-built MA-tree with a 1-levelForces tree. JXL says: learn the SPLITS (not just cluster 1-D keys), learn per-leaf PREDICTOR, share histograms across leaves, keep decode static. This is Boss-e9 territory and it is fully C-compatible. |
+
+SOTA context (honest): neural lossless Kodak ceiling ≈ **2.52–2.54** (CALLIC/HPAC) vs JXL 2.87 vs our 3.27. Our campaign targets JXL-e9 (3.03), i.e. ~60% of the way from JXL-e1 to neural SOTA — ambitious but the classical MA-tree lineage shows the headroom is real, not neural-only.
+
+---
+
+## 2. QOI teardown (qoi.h, 649 lines, read in full — `survey/qoi/`)
+
+### Mechanism-by-mechanism
+1. **Framing**: 14-BE header (`qoif`, w, h, channels, colorspace-informative-only) + 8-B end marker. No entropy coding of any kind — the tag bytes ARE the code.
+2. **INDEX (color cache)**: `hash=(r*3+g*5+b*7+a*11)%64`, 64-entry table, 1 lookup/px encode, 1 store/px (miss path only — subtle: run-pixels don't refresh the cache). 1-byte hit token. This is a *distance-unbounded exact-repeat* mechanism: complements runs (adjacent repeats) with palette-recurrence. Hash collisions silently evict — no chaining, speed over hit-rate.
+3. **DIFF**: 2+2+2-bit tiny deltas (−2..1), 1 byte. Hardcoded fast path for near-flat.
+4. **LUMA**: green-anchored decorrelation — 6-bit green delta (−32..31) + 4-bit (dr−dg),(db−dg) (−8..7), 2 bytes. Green carries bulk change because luma≈green dominates natural-image variance; chroma residuals around luma are small. Mod-256 wraparound everywhere.
+5. **RUN**: 1..62 repeat-of-prev, 1 byte, bias −1; lengths 63/64 illegal (tag space stolen by RGB/RGBA). Flush at 62 or end-of-image.
+6. **RGB/RGBA literals**: 4/5-byte escapes. Failure mode: smooth gradients exceed LUMA windows → 4 B/px WORSE than raw.
+7. **Encoder**: fixed greedy priority run → index → diff → luma → literal. Zero search, deterministic output. **Decoder**: single-pass streaming, ~branch-light, per-pixel state = 1 px + 64-entry table. That's the whole 3–4× PNG decode speedup: no Huffman tables, no LZ window, no 2-D predictor, byte-aligned tags.
+8. **SIMD-friendliness**: mixed. Szablewski himself doubted SIMD fit (data-dependent branches per px). Blend2D's high-perf codec vectorizes via a 128-entry LUT over the tag byte (table the tag, don't branch) — portable lesson for OUR decoder hot loop too.
+
+### Why QOI is fast AND why it loses on ratio (measured)
+- QOI Kodak ≈ 13.99 total bpp = **4.66 bpsp** (SEEC table) vs ours 3.27: **we already beat QOI ~30% on photos**. QOI ≈ PNG only on photo-heavy benches (~1.3×); on icon/UI corpora ~2.8× PNG (nullprogram). QOIR (3000 lines + 4K tables) recovers 6–10% over QOI (WangXuan95 bench) and still trails JXL-l3 by 27% size at 30× faster encode (nigeltao/qoir bench).
+- Root causes: 1-pixel causal history (no gradient/edge predictor), fixed codes instead of entropy coding (1-byte floor per px event), 62-cap runs, cache thrash on texture, literal fallback on gradients. Every one of these is something our pipeline already does better (MED/GAP16, Huffman/rANS, unbounded runs, 365-key contexts).
+
+### Portable ideas, ranked (into a Huffman/rANS predictive codec)
+1. **LUMA-style luma-anchored asymmetric residual coding** — code Y at full width, Co/Cg as deviations-off-Y at narrow width (per-group Huffman already gives us variable widths; make the asymmetry structural: predict chroma-from-luma first, then code the correction). Cheapest idea, fully causal/streaming. Works inside YCoCg-R for free.
+2. **Distant-repeat color-cache escape token** — 64-entry hash cache as a *front-end bypass before residual coding*: exact pixel repeat at any distance → 1 short token; else fall into MED→residual→context path. Generalizes our run mode (adjacent-only) to palette recurrence (icons, graphics, flat skies). O(1), ~256 B state.
+3. **Run-token hygiene** — QOI's 62-cap + end-flush + bias discipline; audit ours for the same triple-redundancy class Blend2D found (DIFF(0,0,0)≡RUN(1)≡INDEX-hit). Our empty-group rANS framing bug was exactly this species.
+4. **Greedy cheapest-first escape ordering as explicit policy** — run → cache → narrow-diff → wide → literal, with the order itself profiled per corpus rather than assumed.
+5. **DIFF tiny-range fast path** — skip the context machinery for |e|≤1-class residuals via dedicated short codes (or verify our per-group Huffman already assigns them ≤2-bit codes; if yes, close as no-op).
+6. **QOIR's meta-lesson** — widen history/tables (decode LUTs) to buy ratio AND speed together; branches are the enemy, tables are cheap. (We tried an 8-bit LUT decode: profile before repeating.)
+7. **Anti-lesson: informative-only signaling** — QOI's colorspace byte costs nothing because the decoder ignores it; every side byte WE add must earn its bits (our LF-side-info retirements say the same).
+
+---
+
+## 3. GenAI usefulness audit (blunt)
+
+**Portable (no GPU/torch at runtime, C-speed compatible):**
+- **A. Offline-learned context trees ("learn the tables, ship the tables").** Train split thresholds + per-leaf predictor/histogram choices on a photo corpus once; ship FIXED tree + tables in the binary. Zero runtime NN. This is FLIF→JXL MA-tree lineage, and our autoK-quantile clustering is its degenerate 1-D case. Expected single biggest classical gain left.
+- **B. Transmitted micro-side-info with strict MDL gating.** ≤2 KB/image (bias tables, per-group k, tiny adapters à la CALLIC-LoRA-25K-params spirit but integer-scale: per-group Golomb-k already does this!). Rule: transmit iff `saved_data_bits > side_bits + margin`. Our Golomb-k + hillclimb-K already obey this; extend to per-leaf predictor ids + bias bytes.
+- **C. Distilled fixed integer predictors.** Fit small predictors offline (least-squares/GAP coefficients on corpus), bake as extra E16 experts. No inference cost beyond the expert we already evaluate. L1-proxy selection already handles the growth.
+- **D. FlashGMM-style fast backend math.** Table-free inverse-CDF rANS, cheap Φ/logistic approximations, SIMD across mixture/expert components. Pure C, no model.
+- **E. Coarse→fine coding schedule (HPCM lesson, integer version).** Code decimated lattice first, condition fine pixels on coarse neighbors — the untested LF-PREDICTION weapon. No side stream (coarse IS transmitted data).
+
+**Hype-only for us (say no):**
+- LLMs (2.83 Kodak at GPU-scale; +0.03 over DLPR for a datacenter), diffusion/flow/VAE codecs (GPU, stochastic, often lossy; 20–150M params), decode-time neural nets of any kind (SEEC's BiRefNet, MGCF's 575K-param inference), semantic segmentation at decode time (encode-side-only at most, and even there a 64-bin gradient/texture proxy gets 80% of it), learned entropy models requiring per-symbol NN inference (Minnen/Checkerboard: 20–200 ms GPU/px-batch — our whole C encoder is faster than their entropy head).
+
+**The one-line verdict:** GenAI's portable yield for a C codec is *its training procedures, not its models* — learn trees, predictors, and clusterings offline with gradient machinery, then ship integers.
+
+---
+
+## 4. TOP-5 ideas mapped to our gaps (Boss e3 needs −1.2%; final e9 needs −7.4%)
+
+1. **MA-tree-lite: offline-learned signaled decision tree over our 365-key property space (splits learned, not 1-D quantiles) + per-leaf predictor + histogram sharing.** Expected −2–4% (CROWN proved clustering wins −3.5%; learned splits + leaf predictors + sharing stack on top). Cost: encoder tree search; decoder = static table lookup (JXL keeps this fast exactly this way). **Kills e3, opens the e9 path.** First experiment: greedy CART split-search on LOCO keys with Huffman-bit objective, K≤64 leaves, sharing via histogram-merge pass.
+2. **Luma-anchored asymmetric chroma coding (QOI-LUMA port).** Predict Co/Cg from Y (CfL-style fixed multipliers + per-group correction), code corrections at narrow width. Expected −0.5–1%. Cost ≈ zero (causal, streaming). **E3 contributor.**
+3. **Distant-repeat hash-cache escape (QOI-INDEX port).** 64-entry `(r*3+g*5+b*7)%64` cache checked before residual path; hit → short token. Expected −0.3–0.8% on Kodak (flat skies/graphics tiles; photos less, but Kodak-13/23 have flat regions), larger on non-photo. Cost ~256 B + 1 lookup/px. **E3 contributor.**
+4. **IFCE-style inter-group conditioning with integer tables (Cool-chic port).** Condition each group's residual distribution on already-coded coarser-group symbols (e.g. coarse magnitude class → fine-group histogram select). Expected −1–2% (Cool-chic ablation: removing it costs +3.8% lossy BD-rate; lossless integer version keeps a fraction). Moderate cost: second-level histogram select per symbol. **E3 killer, e9 path.**
+5. **MDL-gated per-image micro-adapters (CALLIC/hyperlatent port, integer scale).** Per-image global bias vector + per-leaf k deltas, transmitted only if net-positive under exact byte count (kill-switch included). Expected −1–3% IF gated (CALLIC: 2.77→2.54 with 25K float params; our integer version keeps the shape, not the magnitude). Risk: overhead on small images (Cool-chic 2 KB warning = our retired-LF lesson). **E9-path item; needs the gating proven first.**
+
+Deliberately NOT listed: bigger expert sets without selection-gating (E16 ladder is long enough; Chained-Predictors says order+inherit, not count), transform-domain arcs (major-arc cost, parked correctly), any decode-time neural inference, byte-LZ on residuals (dead twice).
+
+---
+
+## Sources
+- Papers via alphaXiv IDs above (abstracts + PDF pages pulled 2026-09-07).
+- Web: nigeltao.github.io/blog/2022/qoir.html; github.com/nigeltao/qoir; blend2d.com/blog/qoi-image-codec.html; cloudinary.com/blog/jpeg-xls-modular-mode-explained; flif.info + FLIF_ICIP16.pdf; nullprogram.com/blog/2022/12/18; WangXuan95/Image-Compression-Benchmark; Orange-OpenSource/Cool-Chic (Cool-chic 5.0).
+- Code: `survey/qoi/` (phoboslab/qoi @ depth 1); chunk notes `survey/qoi_notes.md`.

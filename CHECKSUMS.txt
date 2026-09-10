@@ -1,0 +1,7 @@
+797a5ed9e768bac2143197febe74e9f0  /tmp/opencode/autocompress/experiments/real_photos/kodim01.png
+40bfc5a525f4659c132e72b7a733e45e  /tmp/opencode/autocompress/experiments/real_photos/kodim02.png
+b79782844dae1e15aa9419c502a84f0a  /tmp/opencode/autocompress/experiments/real_photos/kodim05.png
+4d97e7987524aff3bc495776179842be  /tmp/opencode/autocompress/experiments/real_photos/kodim07.png
+9ddecfeef6f7915f5e5ce0d09f0c6c61  /tmp/opencode/autocompress/experiments/real_photos/kodim13.png
+d60e46f8c6fd8f8ae33a39e6eef22af3  /tmp/opencode/autocompress/experiments/real_photos/kodim19.png
+e1328ba2c55d5a72eb77e283c9630b90  /tmp/opencode/autocompress/experiments/real_photos/kodim23.png

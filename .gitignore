@@ -1,0 +1,15 @@
+*.so
+__pycache__/
+*.pyc
+core
+core.*
+*.o
+.DS_Store
+# large repro artifacts (regenerable via cjxl)
+/survey/bosstakedown/data-archive/
+survey/qoi/
+*.o
+/cpp/crown_enc
+/cpp/crown_dec
+/cpp/crown_train
+/cpp/crown_enc_fast

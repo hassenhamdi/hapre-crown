@@ -1,0 +1,65 @@
+# HAPRE-CROWN — lightweight lossless image compression campaign
+
+Bit-exact, dependency-free C codecs (streaming, O(W) RAM) + Python drivers + a fully logged
+research campaign: 7 JPEG/WebP/JXL/JPEG-LS/QOI configurations beaten with Wilcoxon proofs, a declared
+classical ceiling, and every dead end kept with its mechanism.
+
+Current best exact codec: **CROWN6 — 3.1978 bpp Kodak avg** (LOCO contexts, clustered groups,
+16 experts + gated micro-MLP, per-group Huffman/Golomb/rANS, C streaming decode).
+
+## Boss board (exact bytes, Kodak 7×768×512, same machine)
+
+| Opponent | bpp | vs us | stats | verdict |
+|---|---|---|---|---|
+| QOI (4.9197) | 4.9197 | −35% | 7/7 p=.016 | ☠ DEAD |
+| PNG-9 (4.75) | 4.75 | −32% | 7/7 p=.016 | ☠ DEAD |
+| JXL-e1 (3.72) | 3.72 | −14% | 7/7 p=.016 | ☠ DEAD |
+| WebP-m0 (3.60) | 3.60 | −11% | 6/6+1T p=.031 | ☠ DEAD |
+| WebP-m3 (3.347) | 3.347 | −1.4% | 7/7 p=.016 | ☠ DEAD |
+| WebP-m6 (3.3157) | 3.3157 | −3.5% | 7/7 p=.016 | ☠ DEAD |
+| JPEG-LS-CharLS (4.5757) | 4.5757 | −30% | 7/7 p=.016 | ☠ DEAD |
+| FLIF v0.4 (2.9699) | 2.9699 | +7.1% | 0W-7L p=.016 | STANDING |
+| JXL-e3 (3.2291) | 3.2291 | +0.97% | 5W-2L p=.219 | STANDING |
+| JXL-e9 (3.03) | 3.03 | +5.5% | — | FINAL BOSS |
+
+Honesty note: "exact-codec" numbers are measured stream bytes with asserted byte-equality
+round-trips. Probe-level (numpy-estimate) numbers appear in `experiments/probe_*_RESULTS.md`
+and are labeled as such — never confuse the two. Losses are reported with the same rigor as wins.
+
+## Layout (single canonical locations; no duplicates, no compat shims)
+
+- `src/` — C sources + Python drivers + `*_FORMAT.md` stream specs + dev utils
+  (`pareto.py`, `perimage.py`, `test_rans.py`, …). Live codec: `hapre.c` (+`crown*.c`
+  extensions). `hapre.c.golden-*` are era snapshots (moe → run → crown → e16);
+  live file is the superset. Do NOT edit goldens. Shared helpers are vendored per
+  codec file on purpose (wire-stability: each generation is self-contained).
+- `experiments/` — `real_photos/` (md5-pinned Kodak) + quality/RD/train scripts +
+  compat symlinks → `../probes/` for probe modules drivers import (resolving through
+  links is load-bearing; do not replace links with copies).
+- `experiments/` — `real_photos/` (md5-pinned Kodak, see `CHECKSUMS.txt`), `probe_*` (one dir-worth
+  of flat files per research branch: script + `*_RESULTS.md` + logs), `quality.py`, `rd_sweep.py`,
+  `train_mlp.py`. Flat layout is intentional: drivers import probe modules by path.
+- `docs/` — paper drafts (`HAPRE-CROWN-paper-v10.md` current), `VERIFY_report.md` (number audit),
+  `plans/`, `INDEX.md`. `HAPRE-C-paper-draft-v01.md` is SUPERSEDED.
+- `survey/` — literature survey + QOI teardown + JXL boss-takedown (repro `.jxl` archived under
+  `bosstakedown/data-archive/`, git-ignored, regenerable via cjxl).
+- `memory/cycle1-memory.md` — the full campaign log (35+ cycles: wins, dead-ends with mechanisms, bug classes).
+- `RESULTS.md` — results ledger (transcription of banked numbers).
+
+## Quickstart (3 commands)
+
+```bash
+make all          # build all six .so extensions (needs gcc)
+./reproduce.sh    # checksums → rebuild check → byte-exact round-trips + bpp table
+make check        # fast smoke (imports + tiny round-trip)
+```
+
+Environment: `requirements.txt` (PIL 12.2.0, numpy 2.4.6, scipy 1.17.1; torch 2.14+cpu optional
+for MLP training only). Baselines need `cjxl`/`djxl` 0.11.x on PATH.
+
+## Key claims and where they're proven
+
+- 5 exact KOs: `docs/VERIFY_report.md` (52 rows confirmed) + per-codec round-trip asserts in drivers.
+- Classical ceiling 3.2515: `experiments/probe_b14_RESULTS.md` (leave-one-out marginals).
+- Dead-ends with mechanisms: `memory/cycle1-memory.md` cycles 16–33 + `experiments/probe_b*_RESULTS.md`.
+- Near-lossless RD + JXL-lossy context: `memory` cycle 15 + `experiments/rd_sweep.py`.

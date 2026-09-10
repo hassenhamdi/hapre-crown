@@ -1,0 +1,9 @@
+# Observed environment (pinned from `python3 -c "import PIL/numpy/scipy"` on this machine).
+Pillow==12.2.0
+numpy==2.4.6
+scipy==1.17.1
+# Optional: only needed to TRAIN the CROWN6 per-context micro-MLPs (frozen .npz
+# caches ship in experiments/crown6_weights/, so reproduce.sh never trains).
+# Install CPU-only with: pip install torch==2.14.0+cpu --index-url https://download.pytorch.org/whl/cpu
+torch==2.14.0+cpu  # optional (CROWN6 training only; decode/reproduce needs numpy+PIL only)
+# heapq: Python standard library, no pin needed.
