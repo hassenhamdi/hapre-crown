@@ -45,3 +45,29 @@
   (validate_format: page-count pass). Print-proof pages 1,4 inspected.
 - OPEN (author): author names/affiliations still TBD (single-blind allows
   names ON manuscript — fill before Oct 2); portal preview review.
+
+## ts-figure-svg check (2026-09-10; skill loaded and evaluated)
+- Verdict: redraw pipeline NOT applicable — paper contains zero free-form
+  schematics (all 4 floats are real-data matplotlib plots; matplotlib path
+  skips step 5b by design). No PaperBanana run, no SVG redraw, no credentials
+  needed. Its applicable vector gates were run instead, all pass:
+  pdfimages 0 raster rows in all 4 figure PDFs; pdffonts emb+sub+uni (DejaVuSans
+  Type42); smallest word in densest figure (F5) 6.52pt ≥ 5.0 floor, median 9.32;
+  paper.pdf 0 raster rows on all 10 pages; captions located (Fig1 ladder,
+  Fig2 pareto, ceiling LOO).
+- docs/figures/: 6×(pdf+png+csv) + manifest.json (F1/F1b/F2/F3/F4/F5).
+- experiments/probe_b14_summary.json reconstructed (provenance inside).
+- paper.pdf: 10/10 pages, 0 LaTeX errors, 0 undefined refs, fonts embedded
+  (validate_format: page-count pass). Print-proof pages 1,4 inspected.
+- OPEN (author): author names/affiliations still TBD (single-blind allows
+  names ON manuscript — fill before Oct 2); portal preview review.
+
+## ts-paper-figure attempt (2026-09-10; user-directed, skill followed to gates)
+- Placeholder sweep: 0 `\fbox{\rule}` (grep exit 1; control 5 `\includegraphics`
+  match, all resolve to vector PDFs); 0 FIGURE-SPEC. Only commented float is
+  the intentionally dropped F1b (duplicates Table 5).
+- Credential gate: TS_FIG_MODEL/API_KEY/BASE_URL unset, no .env anywhere;
+  gen_image.py hard-returns `unset env` → per skill, STOP + ask user.
+- User decision: accept — no placeholders; all floats are matplotlib data plots
+  that skip the image-model path by the skill's own routing. No PaperBanana
+  run, no schematic commissioned.
