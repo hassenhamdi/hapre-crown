@@ -188,7 +188,7 @@ def fig_f3():
     return fig
 
 # ---------------- F4: negative atlas (signed bars from 0) ----------------
-# Each bar vs its probe-local baseline (see §5); exact deltas banked.
+# Each bar vs its probe-local baseline (per-row ledgers); exact deltas banked.
 # 4-tuples: (family, delta_pct, level, baseline). Rows without a traceable
 # baseline in the ledgers are EXCLUDED (2026-09-10 audit: byte-LZ +1.84, GAP
 # crude mixer +3.70, LPC-3 +4.00, MA-tree-lite -0.56, I-GATED -0.29 have no
@@ -219,7 +219,7 @@ def fig_f4():
     ax.invert_yaxis()
     ax.axvline(0, color="black", linewidth=0.8)
     ax.set_xlabel("Delta vs probe-local baseline (% bpp; + worse, − better)")
-    ax.set_title("Negative atlas (selected; each bar own baseline — see §5)")
+    ax.set_title("Negative atlas (selected; each bar own baseline)")
     return fig
 
 
