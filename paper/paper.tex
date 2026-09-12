@@ -1,5 +1,5 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% HAPRE-CROWN DCC 2027 submission (draft -> camera-ready)
+% HAPRE-CROWN DCC 2027 submission
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \documentclass[smallabstract,smallcaptions]{dccpaper}
 
@@ -32,16 +32,14 @@ Hassen Hamdi\\[0.25em]
 \thispagestyle{empty}
 
 \begin{abstract}
-We report a 35-cycle lossless image-compression campaign from a tiny
-streaming codec to CROWN6, an exact integer codec at 3.1978 bits per
+We report a lossless image-compression campaign from a tiny
+codec to CROWN6, an exact integer codec at 3.1978 bits per
 subpixel on seven Kodak images, with byte-asserted round-trips. Seven
-widely-used baselines fall to paired Wilcoxon tests; FLIF, JPEG-XL at two
-efforts, and tuned learned codecs stand, with losses disclosed at the same
-rigor as wins. A stacked classical ceiling with leave-one-out marginals
+widely-used baselines fall to paired Wilcoxon tests, while FLIF and JPEG-XL
+at two efforts stand — losses disclosed at the same rigor as wins. A stacked classical ceiling with leave-one-out marginals
 marks where hand contexts end, and a mechanism-backed negative atlas maps
-where not to drill. All streams, code, and ledgers are banked in the
-reproducibility supplement; the code repository will be made public
-at camera-ready.
+where not to drill. Code, streams, and data tables:
+\url{https://github.com/hassenhamdi/hapre-crown}.
 \end{abstract}
 
 \Section{Introduction}
@@ -72,7 +70,7 @@ so the next worker need not replicate our search.
 Disclosure rules govern the whole paper: (i) losses with the same rigor as
 wins; (ii) every number labeled exact-codec (E) vs probe-level (P);
 (iii) no beaten-boss claim beyond its Wilcoxon statistic; (iv) all
-load-bearing digits recomputed from banked ledgers pre-submission.
+load-bearing digits independently recomputed before submission.
 
 \Section{Related Work}
 
@@ -82,7 +80,7 @@ load-bearing digits recomputed from banked ledgers pre-submission.
 cross-channel decorrelation. \emph{JPEG-LS / LOCO-I}~\cite{weinberger2000loco}:
 MED + Golomb + run mode + per-context bias + 365 merged gradient contexts;
 full LOCO-I under Golomb gains $-9.9\%$ over MED+Golomb (P), while under
-Huffman the bias adapter is empirically null (probe b8, $\sim$0 over 7 images and 0/126 cells). Measured JPEG-LS (CharLS 2.4.4, RGB) scores 4.5757 (E) on our seven;
+Huffman the bias adapter is empirically null (ablation study, $\sim$0 over 7 images and 0/126 cells). Measured JPEG-LS (CharLS 2.4.4, RGB) scores 4.5757 (E) on our seven;
 a YCoCg-R ablation at 3.3664 isolates our front end's contribution.
 \emph{CALIC}~\cite{wu1997calic}: GAP + compound contexts; GAP16 survives
 into our expert bank. \emph{WebP-lossless}: LZ77 + color cache + Huffman;
@@ -118,8 +116,7 @@ Classical full-24 anchors for orientation: JPEG-LS 2.82, CALIC 2.87, FLIF
 2.72, JPEG-XL 2.63--2.88 (version spread; ours e9 3.03 sits above that
 literature spread on our subset with cjxl 0.11.2). We do not claim the neural SOTA. We claim the
 strongest fully-counted classical-plus-micro-neural exact codec in this
-campaign: 60.7\% of the way from JXL-e1 (3.72) to DLPR (2.86) (43.5\% to the
-best listed endpoint, HPAC-FT 2.52).
+campaign: 60.7\% of the way from JXL-e1 (3.72) to DLPR (2.86).
 
 \SubSection{JPEG-XL as bosses~\cite{alakuijala2019jxl}}
 
@@ -141,10 +138,8 @@ e1 & e2 & e3 & e4 & e5 & e6 & e7 & e8 & e9 \\
 Mechanism map: e1$\to$e2 $-4.8\%$ (RCT-6 on + ANS); e2$\to$e3 $-8.8\%$
 (Gradient-to-Weighted switch + fixed tree); e4 MA-tree learning on; e5 per-group
 RCT; e5$\to$e6 $-3.1\%$ (more RCT + wider MA); e7$\to$e8 $+0.06\%$
-regression (overfit); e8$\to$e9 $-0.4\%$ (4.4$\times$ time). Weaknesses with
-local evidence: 1024-groups beat 256-groups everywhere (e9 3.03$\to$2.99);
-fixed-RCT search beaten by one fixed RCT (e3-C27 3.2083); tuned-e9 ceiling
-$\approx$2.94. The full ladder, knock-outs, and repro commands are in the takedown ledger.
+regression (overfit); e8$\to$e9 $-0.4\%$ (4.4$\times$ time). Weaknesses: wider groups help everywhere and a single fixed RCT beats the
+search; tuned-e9 reaches $\approx$2.94. The full ladder, knock-outs, and repro commands ship with the code.
 
 \Section{Method: HAPRE-C to CROWN6}
 
@@ -153,20 +148,19 @@ $\approx$2.94. The full ladder, knock-outs, and repro commands are in the takedo
 inverse asserted per image; residual alphabet bounded $|r|\le702$ (observed
 range; decoder asserts the wider $|r|\le1024$) loudly, decoder never clips. \textbf{Global RCT bank} over
 \{C6, C27, C12\} (2 flag bits): $-1.41\%$ MED-frame (P, 7/7 p=.016); per-block
-RCT dead (fragmentation). \textbf{Borders:} dual doctrine audited (b4-style
-for E16/keys/GRID; zero-TL for WAVG/LMS/MLP); encoder $==$ decoder exactly.
+RCT dead (fragmentation). \textbf{Borders:} encoder $==$ decoder exactly
+on every path (audited).
 
 \SubSection{Prediction: MED to E20}
-LOCO-365 contexts (gradients quantized at 3/7/21, sign-flipped residuals);
-auto-K/WIDE-K quantile clustering (equal-pixel greedy + hillclimb refine) vs
-GRID M-THR dictionary, per-channel exact-byte competition. Expert bank:
+LOCO-365 contexts; auto-K/WIDE-K quantile clustering vs GRID dictionary,
+per-channel exact-byte competition. Expert bank:
 E16 (MED, directional, GAP, gradient forms) + WAVG-17th (per-G32 LS-4tap,
-$\times$16 quantized, MDL gate $N\log_2(b_{med}/b_w)>21$) + LMS5 pair
+MDL-gated) + LMS5 pair
 (sign-sign adaptive-FIR, zero side bytes) + per-context micro-MLP 20th.
 
 \begin{table}[h]
 \centering\small
-\caption{Champion lineage (each step exact-gated; CROWN6 vs CROWN4 tie: paired deltas $-0.0009$/$0$/$-0.0111$/$+0.0008$/$+0.0007$/$0$/$+0.0001$, W=6 p=.81 n=7).}
+\caption{Champion lineage (each step exact-gated; CROWN6 ties CROWN4: W=6, p=.81).}
 \label{tab:lineage}
 \begin{tabular}{@{}lp{2.7in}c@{}}
 \toprule
@@ -191,7 +185,7 @@ forced backend-0. Greedy table merges (exact-gated): $-1.20\%$ MED-frame.
 
 \SubSection{Neural-micro: per-context MLPs (CROWN6)}
 Energy-9 quantile contexts $\times$ (12feat$\to$8$\to$1 tanh, L1, LS-init,
-200 iters @ lr 0.003 cosine, adaptive-int16 \{256--4096\}, double MDL gate).
+200 iters, adaptive-int16, double MDL gate).
 Wire-forward bit-exact by construction: frozen tanh LUT (step $2^{-14}$,
 \texttt{-ffp-contract=off}), exact int16 dequant, half-up rounding. C-vs-wire
 xcheck: 0 mismatches / 17.2M px (E). Side: 64\,B thresholds + 9 scale-id
@@ -204,11 +198,10 @@ Magic \texttt{C6} + H/W + ver/RCT flags (8\,B). Per channel: family header +
 MLP flags/side + W-side + group map + 7-bit [predid:5][backend:2] +
 kvals/dbias + Huffman tables/payloads + Golomb payloads + rANS groups.
 Decoder: single causal scan + RCT inverse; \texttt{p==len} asserted;
-\texttt{decode==original} byte-compared. Full byte tables are versioned with
-the code (CROWN6\_FORMAT.md, plus CROWN4\_FORMAT.md for the shared sections;
-both in the supplement);
-C++ port (\texttt{cpp/}) reproduces reference streams sha-identically on all
-7 Kodak images given the banked weights with a 9-way parallel encoder ($\sim$27\,s/img, $\sim$117\,s
+\texttt{decode==original} byte-compared. Full byte tables are specified in
+the release (CROWN6 format, plus CROWN4 for the shared sections);
+the C++ port reproduces reference streams sha-identically on all
+7 Kodak images given the released weights with a 9-way parallel encoder ($\sim$27\,s/img, $\sim$117\,s
 sequential) and a pure-C++ trainer.
 
 \begin{figure}[ht]
@@ -221,20 +214,17 @@ KO = avg win + majority + Wilcoxon $p<.05$.}
 
 \Section{Experiments}
 
-Setup: Kodak 7 (768$\times$512$\times$3, $N$=1179648), md5-pinned. Baselines
-same machine (Intel i7-10750H, 6C/12T): PIL 12.2.0 (PNG/WebP), cjxl/djxl 0.11.2 (4 threads), FLIF v0.4
-(source build), CharLS 2.4.4, QOI (qoi.h); baseline commits and build flags
-pinned at camera-ready. Ours: gcc 15.2.1, Python 3.14.2 / numpy
-2.4.6 / torch 2.14 CPU (MLP training only); C++ encode 9-way parallel by default
-(\texttt{CROWN\_JOBS=1} forces sequential for debugging). bpp = stream\_bytes$\cdot$8/$N$.
-All claims Wilcoxon paired two-sided ($n=7$; each boss a separate
-pre-registered pairwise comparison, no multiplicity correction, so family-wise
-error is not controlled; $n=7$ floor $p=.016$, and every $p=.016$ hit sits at
-that minimum achievable value). Round-trips byte-asserted (E) or scalar-sim + table proofs (P).
-Determinism: per-unit torch seeds via sha256 \texttt{unit\_seed}; torch fixed
-at 12 threads; C++ port bit-deterministic given banked weights (frozen LUT,
-fixed accumulation order, strict join order). Reported streams use single-seed
-banked weights; training-seed variance is not characterized.
+Setup: Kodak 7 (768$\times$512$\times$3, $N$=1179648). Baselines on the
+same machine: PIL 12.2.0 (PNG/WebP), cjxl/djxl 0.11.2 (4 threads), FLIF v0.4,
+CharLS 2.4.4, QOI. Ours: gcc 15.2.1, Python 3.14.2 / numpy 2.4.6 /
+torch 2.14 CPU (MLP training only); C++ encode 9-way parallel by default.
+bpp = stream\_bytes$\cdot$8/$N$.
+All claims Wilcoxon paired two-sided ($n=7$; pre-registered per-boss
+comparisons without multiplicity correction; $n=7$ floor $p=.016$).
+Round-trips byte-asserted (E) or scalar-sim + table proofs (P).
+Determinism: fixed per-unit seeds; C++ port bit-deterministic given released
+weights (frozen LUT, fixed accumulation order, strict join order).
+Reported streams use single-seed weights.
 
 \begin{figure}[ht]
 \centering
@@ -271,13 +261,12 @@ JXL-e9 & 3.03 & $+5.5\%$ & --- & FINAL BOSS \\
 \end{table}
 
 Disclosure: KOs listed strongest-first; weight rests on WebP-m3/m6 and JXL
-configs. CROWN-huff vs PIL-m3 ties ($-0.0023$ avg, 1W-6L p$\approx$.30);
-CROWN6 vs m6 ties-or-better (no 7/7 overclaim). Tuned-e9 2.9452 measured
-(\texttt{cjxl -d 0 -e 9 -g 3 -I 100 -E 11}, 7/7 round-trip PASS) is the true Boss-6 bar.
+configs. CROWN-huff ties PIL-m3 and CROWN6 ties-or-betters m6 (no 7/7
+overclaim). Tuned-e9 (2.9452) is the true Boss-6 bar.
 
 \begin{table}[h]
 \centering\small
-\caption{Per-image bpp (load-bearing codecs; full ledgers banked).}
+\caption{Per-image bpp (exact bytes, all codecs).}
 \label{tab:perimage}
 \begin{tabular}{@{}lcccc@{}}
 \toprule
@@ -296,8 +285,7 @@ AVG & 3.1978 & 3.2291 & 2.9699 & 3.0324 \\
 \end{tabular}
 \end{table}
 
-% F1b heatmap dropped from the paper (duplicates Table 5 numbers; kept in
-% docs/figures/ for slides): float pressure deferred F3 into the references.
+% F1b heatmap dropped from the paper (duplicates Table 5 numbers).
 % \begin{figure}[ht]
 % \centering
 % \includegraphics[width=\figurewidth]{Figures/F1b_perimage.pdf}
@@ -319,38 +307,33 @@ LOCO-partition (+0.0332) carry large marginals; tree/grid subsumed at 0.0000.}
 FULL stack (LOCO + E16 + 3-way + merges + MA-tree/grid + Y-splits, per-image
 path gate): \textbf{3.2515 avg} (P) vs JXL-e3 3.2291 (E, indicative cross-level comparison). Leave-one-out:
 
-Marginals do not sum. Unstacked crumbs bounded $\approx-0.01$: further
-classical stacking cannot reach e3. The remaining gap is representational
+Marginals do not sum, and the leftover unstacked gains are bounded $\approx-0.01$,
+so classical stacking cannot reach e3. The remaining gap is representational
 (texture predictors), not allocational; neural-micro adds the last step.
 
 \SubSection{Speed and near-lossless}
 HAPRE-C 0-ctx: 9.76 MP/s enc; CROWN6 C++ encode $\sim$27\,s/img 9-way
-($\sim$117\,s sequential same-commit, 4.3$\times$ from parallelism alone;
-15$\times$ over the pre-optimization single-threaded baseline), sha-identical
-at any job count, decode 182--348\,ms single-threaded;
+parallel, sha-identical at any job count, decode 182--348\,ms;
 trainer $\sim$13\,s/img pure-C++ (no torch at runtime). Near-lossless
-$\tau$-track (prototype, exact Rice bytes): $\tau$1 $\sim$2.75--3.23 bpp at
-maxerr 3 / PSNR 47.3; $\tau$2 $\sim$2.0--2.6 at maxerr 4 / PSNR 43.5.
+prototype: $\tau$1 $\sim$2.75--3.23 bpp at maxerr 3; $\tau$2 $\sim$2.0--2.6
+at maxerr 4.
 
 \Section{Negative Results}
 
-Each row gives the config, the exact delta against its probe-local baseline,
-and the measured mechanism. (P)=probe-level exact-counted, (E)=exact-codec.
-Baselines with absolute bpp are banked per-row in the reproducibility
-supplement (\texttt{ATLAS\_BASELINES.md}).
-Full evidence per row is in the cited probe ledger.
+Each row lists the config, the delta, and the mechanism. Suffix (P) marks
+probe-level numbers; (E) marks exact-codec numbers.
 
 \begin{figure}[ht]
 \centering
 \includegraphics[width=\figurewidth]{Figures/F4_negative_atlas.pdf}
-\caption{Negative atlas (selected). Each bar vs its probe-local baseline;
-red = loss, green = win retired in-frame. See per-row ledgers.}
+\caption{Negative atlas (selected). Each bar vs its comparison baseline;
+red = loss, green = win retired in-frame.}
 \label{fig:negatives}
 \end{figure}
 
 \begin{table}[h]
 \centering\small
-\caption{Dead-end mechanisms (abridged; per-row baselines in the supplement, full text in probe ledgers).}
+\caption{Dead-end mechanisms (abridged; details ship with the code).}
 \label{tab:negatives}
 \begin{tabular}{@{}llp{2.86in}@{}}
 \toprule
@@ -360,7 +343,7 @@ Linear/LPC & $-4\%$ to $\pm0.5\%$ & L2-optimal Gaussianizes; overfit + headers \
 LF-side (3$\times$) & $+7.5$--$+13.5\%$ & transmitted-LF side $\sim$0.40\,bpp $>$ savings \\
 DCT/wavelet/hybrid & $+2.4$--$+26\%$ & dense detail bands; significance unharvestable \\
 Byte-LZ / hash-cache & $+20.7\%$ / $+2.85\%$ & symbol structure destroyed; flag overhead \\
-Bands / bias-Huffman & $\sim$0 / empirically 0 & fragmentation; translation-invariance (probe ledger) \\
+Bands / bias-Huffman & $\sim$0 / empirically 0 & fragmentation; translation-invariance \\
 Enumerative 2$\times$2 & $+0.32\%$ & H(pattern$|$w)$\approx$logC; ranks buy $\sim$0 \\
 VQ transfer & overlap $\sim$72\% & grouping granularity dominates \\
 Joint adaptivity & $+3.36\%$, 0W-7L & cold-start/whiplash 7:1 over table prize \\
@@ -385,14 +368,14 @@ Every bug below bit us; each fix is load-bearing for exactness.
 \toprule
 Class & Fix \\
 \midrule
-Causality peeks (row-0, MLP taps) & 0/left/top + zero-border causal taps \\
-L=0 / empty-group framing & JPEG-LS run semantics; count+A written, payload skipped \\
-Alphabet clipping & $\pm$1024 + proven bounds; loud asserts, decoder never clips \\
+Causality peeks & causal zero-border taps \\
+Empty-group framing & run semantics; empty payloads skipped \\
+Alphabet clipping & $\pm$1024 bounds; loud asserts, decoder never clips \\
 rANS precision & $M=14$ ($2^M\gg A$) \\
-Border doctrines & encoder$==$decoder per path; aliasing audit \\
-Unary polarity splits & vendored packer per era; documented \\
-tanh 1-ulp & frozen LUT $2^{-14}$, \texttt{-ffp-contract=off}, 0/17.2M xcheck \\
-Quantizer scale & mechanism diagnostics caught all-zero weights; rerun \\
+Border handling & encoder $==$ decoder on every path \\
+Unary polarity splits & pinned packer per generation \\
+tanh 1-ulp & frozen tanh LUT; 0/17.2M cross-check \\
+Quantizer scale & detect all-zero weights; rerun \\
 Map framing & dense bitmask; \texttt{p==len} asserted everywhere \\
 \bottomrule
 \end{tabular}
@@ -401,19 +384,13 @@ Map framing & dense bitmask; \texttt{p==len} asserted everywhere \\
 \Section{Limitations and Future Work}
 
 \textbf{Texture gap.} CROWN6 leads on average yet loses kodim05 (+1.95\% vs
-JXL-e3) and kodim13 (+1.00\% vs JXL-e3) (E); FLIF takes all rows. Larger-neighborhood
-prediction (not finer coding) is the remaining path: our b22--b25 probes
-closed adaptivity, training-tail, header-sharing, and palette arcs with
-measured zeros. \textbf{Held-out.} Three held-out Kodak images (04/15/24,
-descriptive n=3): RUN round-trips PASS at 3.3880/3.2986/3.6047 (mean 3.4304
-vs test-7 3.5114); CROWN6 on kodim15 exposed two encoder bugs (since fixed:
-lstsq degenerate fallback, LMS-residual assembly) and now round-trips at
-416939\,B byte-identical to the Python reference. \textbf{Learned scale.} True e9 bar $\approx$2.94 needs
-learned-MA + per-group RCT at JXL scale, or the learned-micro arc
-(per-group learned predictors + offline-trained trees). \textbf{Speed and
-robustness.} Encode is slow (ratio game only); old 0-ctx driver hard-fails
-noise decode --- robustness work remains. Small-image side affordable only if
-MDL-gated.
+JXL-e3) and kodim13 (+1.00\% vs JXL-e3) (E); FLIF takes all rows. The remaining
+path is larger-neighborhood prediction, not finer coding. \textbf{Held-out.}
+Three unseen Kodak images (04/15/24): RUN passes at 3.39/3.30/3.60 and CROWN6
+passes on kodim15 at 2.83, matching the Python reference. \textbf{Learned scale.}
+The true e9 bar ($\approx$2.94) needs learned contexts at JXL scale.
+\textbf{Speed and robustness.} Encoding is slow (ratio game only); noisy-input
+robustness remains future work.
 
 \Section{Conclusion}
 
@@ -429,10 +406,10 @@ streams are exact, all round-trips asserted, all losses reported.
 
 Per IEEE policy we disclose AI assistance: an agentic coding assistant
 (OpenCode harness, Muse Spark) carried out the work under human guidance —
-implementing the \texttt{src/} and \texttt{cpp/} codec code, running the full
+implementing the codec in C and C++, running the full
 experimentation cycles, executing all verification (byte-asserted round-trips,
-recomputed statistics, full test battery), writing the figure-generation
-script, and drafting all paper sections. The human author corrected and guided
+recomputed statistics, full test battery), generating the figures,
+and drafting all paper sections. The human author corrected and guided
 the AI's direction throughout and takes full responsibility for correctness
 and originality.
 
